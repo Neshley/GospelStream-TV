@@ -1,51 +1,181 @@
 @import "tailwindcss";
 
-@layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #0b0f17;
-    color: #f1f5f9;
-    overflow-x: hidden;
-    user-select: none;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  h1, h2, h3, .font-display {
-    font-family: 'Outfit', sans-serif;
-  }
-
-  .font-serif-brand {
-    font-family: 'Cinzel', serif;
-  }
+:root {
+  color-scheme: dark;
+  --gs-bg: #050711;
+  --gs-panel: rgba(12, 16, 29, .78);
+  --gs-panel-strong: #0c1020;
+  --gs-border: rgba(148, 163, 184, .13);
+  --gs-gold: #f6b84b;
+  --gs-blue: #6ea8ff;
+  --gs-purple: #9b7cff;
 }
 
-/* TV Focus ring simulation */
+* { box-sizing: border-box; }
+html { background: var(--gs-bg); scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at 10% -10%, rgba(110,168,255,.15), transparent 30rem),
+    radial-gradient(circle at 92% 8%, rgba(155,124,255,.13), transparent 28rem),
+    radial-gradient(circle at 45% 100%, rgba(246,184,75,.07), transparent 32rem),
+    #050711;
+  color: #f8fafc;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .035;
+  background-image: linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+button, input, textarea, select { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
+.font-serif-brand { font-family: 'Cinzel', serif; }
+
+::selection { background: rgba(110,168,255,.35); color: white; }
+
+/* App shell */
+#root { min-height: 100vh; }
+main {
+  position: relative;
+}
+main::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(900px, 90vw);
+  height: 220px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(110,168,255,.09), transparent 68%);
+  pointer-events: none;
+}
+
+/* Header */
+#app-main-header {
+  background: rgba(5, 7, 17, .78) !important;
+  border-color: rgba(148,163,184,.12) !important;
+  box-shadow: 0 14px 45px rgba(0,0,0,.22), inset 0 -1px rgba(255,255,255,.025);
+}
+#app-main-header::after {
+  content: '';
+  position: absolute;
+  left: 8%; right: 8%; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110,168,255,.35), rgba(246,184,75,.28), transparent);
+}
+#brand-home-button { padding: 3px; border-radius: 16px; }
+#brand-home-button:hover { background: rgba(255,255,255,.035); }
+
+/* Shared cards */
+main .rounded-3xl,
+main .rounded-2xl,
+main .rounded-xl {
+  border-color: var(--gs-border);
+}
+main .bg-slate-900\/70,
+main .bg-slate-900\/80,
+main .bg-slate-900\/90,
+main .bg-slate-950\/60 {
+  background: linear-gradient(145deg, rgba(17,23,39,.84), rgba(7,10,20,.78)) !important;
+  backdrop-filter: blur(18px);
+}
+main .shadow-xl, main .shadow-2xl, main .shadow-lg {
+  box-shadow: 0 24px 70px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.025) !important;
+}
+
+/* Hero / player */
+#live-tv-player {
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 30px 90px rgba(0,0,0,.4), 0 0 0 1px rgba(110,168,255,.035);
+}
+
+/* TV focus ring */
 .tv-focusable {
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), outline 0.18s ease;
+  transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s cubic-bezier(.16,1,.3,1), outline .18s ease, border-color .18s ease;
   outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
-
 .tv-focusable:focus-visible,
 .tv-focusable.tv-active-focus {
-  transform: scale(1.04);
-  outline: 3px solid #60a5fa;
-  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.35);
+  transform: scale(1.035);
+  outline: 3px solid var(--gs-blue);
+  box-shadow: 0 16px 42px rgba(60,130,246,.25), 0 0 0 1px rgba(255,255,255,.08) inset;
   z-index: 20;
 }
 
-/* Custom horizontal scroll for TV shelves */
-.shelf-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+/* Buttons */
+button:not([disabled]) { transition: transform .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
+button:not([disabled]):active { transform: scale(.97); }
+
+/* Inputs */
+input, textarea, select {
+  background: rgba(8,12,23,.84) !important;
+  border-color: rgba(148,163,184,.14) !important;
 }
-.shelf-scroll::-webkit-scrollbar {
-  height: 6px;
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(110,168,255,.65) !important;
+  box-shadow: 0 0 0 4px rgba(110,168,255,.09), 0 8px 30px rgba(0,0,0,.18);
+  outline: none !important;
 }
-.shelf-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 9999px;
+
+/* Content shelves */
+.shelf-scroll { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.24) transparent; }
+.shelf-scroll::-webkit-scrollbar { height: 6px; }
+.shelf-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,.24); border-radius: 999px; }
+.shelf-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Make media cards feel premium */
+main img { transition: transform .45s cubic-bezier(.16,1,.3,1), filter .3s ease; }
+main .group:hover img { transform: scale(1.045); filter: saturate(1.08) contrast(1.03); }
+main .group:hover { border-color: rgba(110,168,255,.28) !important; box-shadow: 0 20px 55px rgba(0,0,0,.28), 0 0 0 1px rgba(110,168,255,.04) inset; }
+
+/* Page-specific polish */
+#christian-online-hub > :first-child,
+#personalized-library-view > :first-child,
+#live-events-view > :first-child,
+#offline-downloads-view > :first-child {
+  box-shadow: 0 28px 80px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.045);
 }
-.shelf-scroll::-webkit-scrollbar-track {
-  background: transparent;
+#sermon-catalog-view > div:first-child,
+#epg-channel-guide > div:first-child {
+  position: relative;
+}
+#sermon-catalog-view > div:first-child::after,
+#epg-channel-guide > div:first-child::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, rgba(246,184,75,.55), rgba(110,168,255,.5), transparent 75%);
+}
+
+/* Modal */
+[role="dialog"] { backdrop-filter: blur(18px); }
+
+/* Offline ribbon */
+body .bg-amber-600 {
+  background: linear-gradient(90deg, #d97706, #f59e0b, #d97706) !important;
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  body { font-size: 13px; }
+  #app-main-header { padding-left: 10px !important; padding-right: 10px !important; }
+  main { padding: 12px !important; }
+  main .rounded-3xl { border-radius: 22px; }
+  main .rounded-2xl { border-radius: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

@@ -378,7 +378,7 @@ export default function App() {
       />
 
       {/* Main Body Container formatted for device mode */}
-      <main className={`flex-1 p-4 sm:p-6 transition-all mx-auto w-full ${
+      <main id="app-content" className={`flex-1 p-4 sm:p-6 transition-all mx-auto w-full ${
         deviceMode === 'mobile'
           ? 'max-w-md border-x border-slate-800 shadow-2xl min-h-[800px] my-2'
           : deviceMode === 'tablet'
@@ -389,7 +389,7 @@ export default function App() {
       }`}>
         {/* TAB: LIVE TV */}
         {currentTab === 'live-tv' && (
-          <div className="space-y-8 animate-in fade-in duration-200">
+          <div className="space-y-8 animate-in fade-in duration-300 page-home">
             {/* TV Player */}
             <LiveTvPlayer
               currentChannel={currentChannel}
@@ -476,7 +476,7 @@ export default function App() {
 
         {/* TAB: ONLINE CHRISTIAN VIDEOS (YOUTUBE INTEGRATION) */}
         {currentTab === 'online-videos' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <OnlineChristianVideos
               onSelectVideo={(s) => setSelectedSermon(s)}
               syncState={syncState}
@@ -492,7 +492,7 @@ export default function App() {
 
         {/* TAB: EPG PROGRAM GUIDE */}
         {currentTab === 'guide' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <ChannelGuide
               channels={channels}
               currentChannel={currentChannel}
@@ -510,7 +510,7 @@ export default function App() {
 
         {/* TAB: SERMONS CATALOG */}
         {currentTab === 'sermons' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <SermonCatalog
               sermons={displayedSermons}
               onSelectSermon={(s) => setSelectedSermon(s)}
@@ -524,7 +524,7 @@ export default function App() {
 
         {/* TAB: PERSONALIZED LIBRARY */}
         {currentTab === 'library' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <PersonalizedLibrary
               sermons={allSermons}
               syncState={syncState}
@@ -539,7 +539,7 @@ export default function App() {
 
         {/* TAB: LIVE EVENTS & NOTIFICATIONS */}
         {currentTab === 'events' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <EventsCalendar
               events={UPCOMING_EVENTS}
               syncState={syncState}
@@ -556,7 +556,7 @@ export default function App() {
 
         {/* TAB: OFFLINE DOWNLOADS */}
         {currentTab === 'downloads' && (
-          <div className="animate-in fade-in duration-200">
+          <div className="animate-in fade-in duration-300 page-view">
             <OfflineDownloads
               sermons={allSermons}
               syncState={syncState}
