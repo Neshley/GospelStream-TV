@@ -6,7 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { verifyChristianContent, checkSearchRelevance } from './src/utils/christianFilter';
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = 3000;
 const CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_QUERY_LENGTH = 120;
 const MAX_BODY_BYTES = 256 * 1024;
