@@ -27,9 +27,7 @@ import {
   Trash2,
   Headphones,
   RefreshCw,
-  Youtube,
   ShieldCheck,
-  ExternalLink,
   Film
 } from 'lucide-react';
 import { extractYouTubeId, getYouTubeEmbedUrl } from '../utils/christianFilter';
@@ -279,7 +277,7 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                   {sermon.isLive ? (
                     <>
                       <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                      <span>🔴 LIVE ON YOUTUBE</span>
+                      <span>🔴 LIVE NOW</span>
                     </>
                   ) : (
                     <>
@@ -407,7 +405,7 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
               <div className="flex items-center gap-2">
                 {isYouTubeVideo ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 text-xs text-slate-400 border border-slate-700">
-                    Offline download unavailable for YouTube videos
+                    Offline saving isn't available for this online video
                   </span>
                 ) : isDownloaded ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 border border-emerald-500/30">
@@ -432,38 +430,6 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
               </div>
             </div>
           </div>
-
-          {/* YouTube Streaming Source Banner */}
-          {isYouTubeVideo && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-red-950/40 via-slate-900 to-slate-900 border border-red-900/30 p-3.5 px-4 shadow-lg">
-              <div className="flex items-center gap-2.5">
-                {sermon.isLive ? (
-                  <span className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-white shadow animate-pulse">
-                    <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-                    <span>LIVE STREAM ON YOUTUBE</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 rounded-lg bg-slate-800 border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-200 shadow">
-                    <Film className="h-3.5 w-3.5 text-blue-400" />
-                    <span>RECORDED / UPLOADED VIDEO</span>
-                  </span>
-                )}
-                <span className="flex items-center gap-1 text-xs text-emerald-300 font-medium">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span>Christian-content match</span>
-                </span>
-              </div>
-              <a
-                href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 border border-slate-700 transition"
-              >
-                <span>Watch on YouTube</span>
-                <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-              </a>
-            </div>
-          )}
 
           {/* Sermon Title & Minister Profile */}
           <div className="rounded-2xl bg-slate-900/60 p-5 border border-slate-850 space-y-3">

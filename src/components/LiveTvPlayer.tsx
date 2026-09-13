@@ -177,12 +177,12 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
             {currentChannel.currentProgram.isLive ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                <span>🔴 YouTube Live Stream</span>
+                <span>🔴 LIVE NOW</span>
               </>
             ) : (
               <>
                 <Film className="h-3.5 w-3.5 text-blue-400" />
-                <span>🎬 Recorded Christian Broadcast</span>
+                <span>🎬 FEATURED BROADCAST</span>
               </>
             )}
           </div>
@@ -286,7 +286,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
         </button>
       )}
 
-      {/* Channel Watermark / Corner Badge - Accurate YouTube Live vs Recorded Status */}
+      {/* Channel Watermark / Corner Badge */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         {currentChannel.currentProgram.isLive ? (
           <span className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg backdrop-blur-sm animate-pulse">

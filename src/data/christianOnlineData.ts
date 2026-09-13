@@ -6,7 +6,7 @@ export interface ChristianOnlineCategory {
 }
 
 export const ONLINE_CHRISTIAN_CATEGORIES: ChristianOnlineCategory[] = [
-  { id: 'all', name: 'All Christian Videos', description: 'Curated Christian videos from YouTube', icon: 'Sparkles' },
+  { id: 'all', name: 'All Christian Videos', description: 'Curated Christian video library', icon: 'Sparkles' },
   { id: 'livestreams', name: 'Live Worship & Streams', description: '24/7 Gospel praise and live church broadcasts', icon: 'Radio' },
   { id: 'sermons', name: 'Pulpit Sermons', description: 'Powerful preaching from renowned biblical teachers', icon: 'BookOpen' },
   { id: 'worship', name: 'Praise & Worship', description: 'Uplifting gospel and contemporary worship music', icon: 'Music' },

@@ -68,7 +68,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'recorded'>('all');
   
-  // Real YouTube dynamic videos
+  // Real online dynamic videos
   const [youtubeVideos, setYoutubeVideos] = useState<Sermon[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
@@ -92,7 +92,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
   const [visibleCount, setVisibleCount] = useState<number>(12);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Initial load directly from real YouTube API
+  // Initial load from the connected content service
   const loadInitialVideos = useCallback(async () => {
     setIsInitialLoading(true);
     try {
@@ -114,7 +114,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     loadInitialVideos();
   }, [loadInitialVideos]);
 
-  // Debounced search directly to YouTube when user enters search term
+  // Debounced search through the connected content service
   useEffect(() => {
     if (!searchQuery.trim()) return;
 
@@ -147,7 +147,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery, liveFilter]);
 
-  // Refresh feeds directly from YouTube
+  // Refresh feeds from the connected content service
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -165,7 +165,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     }
   };
 
-  // Continuous discovery with NO LIMIT directly from YouTube
+  // Continuous discovery through the connected content service
   const handleFetchMoreFromYouTube = async () => {
     if (isFetchingMore) return;
     setIsFetchingMore(true);
@@ -286,7 +286,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     };
   }, [inputUrl, inputTitle, inputMinistry, inputScripture]);
 
-  // Handle importing a validated Christian YouTube video with real-time Live check
+  // Handle importing a validated Christian video with real-time live check
   const handleImportVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     setImportStatusMessage(null);
@@ -294,7 +294,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     const youtubeId = extractYouTubeId(inputUrl);
     if (!youtubeId) {
       setImportStatusMessage({
-        text: 'Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=... or https://youtu.be/...)',
+        text: 'Please enter a valid video link or supported video ID.',
         isError: true,
       });
       return;
@@ -304,19 +304,19 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     try {
       // Check whether this specific video is currently live on YouTube
       const statusRes = await checkYouTubeVideoStatus(youtubeId);
-      if (!statusRes.available) throw new Error('YouTube status verification is unavailable. Configure YOUTUBE_API_KEY on the server before importing videos.');
+      if (!statusRes.available) throw new Error('Video verification is unavailable. Connect the content service on the server before importing videos.');
       if (!statusRes.verifiedChristian || (statusRes.verificationConfidence || 0) < 75) {
-        throw new Error('This YouTube video did not meet the server-side Christian-content threshold. Try a sermon, worship service, Bible study, or ministry broadcast.');
+        throw new Error('This video did not meet the server-side Christian-content threshold. Try a sermon, worship service, Bible study, or ministry broadcast.');
       }
       const isLiveNow = statusRes.isLive;
-      const displayTitle = inputTitle.trim() || statusRes.title || 'Christian YouTube video';
+      const displayTitle = inputTitle.trim() || statusRes.title || 'Christian video';
       const scriptureRef = inputScripture.trim();
 
       const newVideo: Sermon = {
         id: `yt-import-${youtubeId}-${Date.now()}`,
         title: displayTitle,
-        preacher: inputMinistry.trim() || statusRes.author || 'YouTube Ministry',
-        ministry: inputMinistry.trim() || statusRes.author || 'YouTube Ministry',
+        preacher: inputMinistry.trim() || statusRes.author || 'Ministry',
+        ministry: inputMinistry.trim() || statusRes.author || 'Ministry',
         scripture: scriptureRef,
         scriptureText: '',
         duration: isLiveNow ? 0 : 2700,
@@ -329,8 +329,8 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         isLive: isLiveNow,
         verifiedChristian: true,
         category: inputCategory,
-        date: isLiveNow ? 'Streaming Live on YouTube' : 'Uploaded to YouTube',
-        description: statusRes.description || `${displayTitle}. ${isLiveNow ? 'Live on YouTube.' : 'Recorded on YouTube.'}`,
+        date: isLiveNow ? 'Streaming Live' : 'Recorded',
+        description: statusRes.description || `${displayTitle}. ${isLiveNow ? 'Live broadcast.' : 'Recorded message.'}`,
         chapters: [
           { title: isLiveNow ? 'Live Stream' : 'Full Sermon / Worship', time: 0 },
         ],
@@ -343,11 +343,11 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         ],
         keyPoints: [
           'Faith comes by hearing, and hearing by the Word of God.',
-          isLiveNow ? 'Real-time live stream from YouTube.' : 'Recorded and uploaded video on demand.'
+          isLiveNow ? 'Real-time live stream.' : 'Recorded video available on demand.'
         ],
         downloadSizeMb: 0,
-        tags: ['YouTube', isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory, statusRes.author || 'Ministry'],
-        viewsCount: isLiveNow ? 'Live on YouTube' : 'Recorded Video'
+        tags: [isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory, statusRes.author || 'Ministry'],
+        viewsCount: isLiveNow ? 'Live Now' : 'Recorded Video'
       };
 
       setYoutubeVideos((prev) => [newVideo, ...prev]);
@@ -375,7 +375,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
 
   return (
     <div id="christian-online-hub" className="space-y-8 animate-in fade-in duration-300">
-      {/* Top Banner & YouTube Live Integration Header */}
+      {/* Top Banner & Live Integration Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl">
         <div className="absolute -right-12 -bottom-12 h-64 w-64 rounded-full bg-red-600/10 blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -top-12 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
@@ -385,7 +385,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-md">
                 <Youtube className="h-3.5 w-3.5 fill-current" />
-                <span>Live YouTube Feed</span>
+                <span>Live Feed</span>
               </span>
 
               {/* Real-time sync indicator */}
@@ -406,11 +406,11 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
             </div>
 
             <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-              Live YouTube Christian Sanctuary
+              Christian Live Sanctuary
             </h1>
 
             <p className="text-sm text-slate-300 leading-relaxed">
-              Streams and videos fetched directly live from YouTube. When a video is currently live on YouTube, it displays as <strong>LIVE</strong> with real-time viewer counters. When a video was recorded and uploaded, it displays as <strong>RECORDED</strong> with precise durations.
+              Live and recorded Christian media, presented inside GospelStream with live status and duration information.
             </p>
           </div>
 
@@ -420,17 +420,17 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               onClick={handleRefresh}
               disabled={isRefreshing}
               className="flex items-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-3 text-xs sm:text-sm font-semibold text-white transition active:scale-95 disabled:opacity-50"
-              title="Refresh feeds live from YouTube"
+              title="Refresh the live feed"
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-blue-400' : 'text-slate-300'}`} />
-              <span>{isRefreshing ? 'Refreshing...' : 'Refresh YouTube'}</span>
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh Feed'}</span>
             </button>
 
             <button
               onClick={handleFetchMoreFromYouTube}
               disabled={isFetchingMore}
               className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 px-4 py-3 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-500/25 transition active:scale-95 border border-red-400/30 disabled:opacity-50"
-              title="Continuously discover more Christian live streams and recorded messages from YouTube with no limit"
+              title="Discover more Christian live streams and recorded messages"
             >
               {isFetchingMore ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
@@ -468,7 +468,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                 {featuredVideo.isLive ? (
                   <span className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-wider text-white shadow-lg animate-pulse">
                     <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-                    <span>LIVE ON YOUTUBE</span>
+                    <span>LIVE NOW</span>
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5 rounded-lg bg-slate-900/90 border border-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-200 shadow backdrop-blur-md">
@@ -568,7 +568,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search live Christian streams or recorded sermons on YouTube..."
+              placeholder="Search live Christian streams or recorded sermons..."
               className="w-full rounded-2xl bg-slate-900 border border-slate-800 pl-10 pr-10 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition shadow-inner"
             />
             {searchQuery && (
@@ -602,7 +602,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               }`}
             >
               <span className="h-2 w-2 rounded-full bg-red-400 animate-ping" />
-              <span>Live on YouTube ({liveCount})</span>
+              <span>Live Now ({liveCount})</span>
             </button>
             <button
               onClick={() => setLiveFilter('recorded')}
@@ -664,10 +664,10 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
             )}
             <h2 className="font-display text-lg font-bold text-white tracking-tight">
               {liveFilter === 'live' 
-                ? 'Streams Live on YouTube Right Now' 
+                ? 'Live Now' 
                 : liveFilter === 'recorded' 
                 ? 'Recorded & Uploaded Christian Messages' 
-                : 'Christian Videos Live From YouTube'}
+                : 'Christian Video Library'}
             </h2>
           </div>
 
@@ -681,9 +681,9 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <Loader2 className="h-10 w-10 animate-spin text-red-500" />
             <div className="space-y-1">
-              <h3 className="font-display text-base font-bold text-white">Connecting Directly to YouTube Live...</h3>
+              <h3 className="font-display text-base font-bold text-white">Connecting to the Live Feed...</h3>
               <p className="text-xs text-slate-400 max-w-sm">
-                Scanning YouTube's global Christian channels to verify live broadcast status.
+                Checking Christian broadcasts and live status.
               </p>
             </div>
           </div>
@@ -694,7 +694,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
             <p className="text-xs text-slate-400 max-w-md mx-auto">
               {liveFilter === 'live' 
                 ? 'No live streams found in this category right now. Switch to All Content or Recorded Messages.'
-                : 'Try searching for another topic or click below to discover more from YouTube.'}
+                : 'Try searching for another topic or use Discover More.'}
             </p>
             <button
               onClick={() => {
@@ -853,17 +853,17 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               {isFetchingMore ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  <span>Loading Real Feeds Live From YouTube...</span>
+                  <span>Loading Live Feed...</span>
                 </>
               ) : (
                 <>
                   <ChevronDown className="h-4 w-4" />
-                  <span>Keep Loading More From YouTube (No Limit)</span>
+                  <span>Load More</span>
                 </>
               )}
             </button>
             <span className="text-[11px] text-slate-400">
-              Scroll down or click to load continuous live streams and recorded messages directly from YouTube
+              Load more Christian streams and messages as you browse
             </span>
           </div>
         </div>
@@ -879,7 +879,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                   <Youtube className="h-5 w-5 fill-current" />
                 </div>
                 <div>
-                  <h3 className="font-display text-base font-bold text-white">Import YouTube Christian Video</h3>
+                  <h3 className="font-display text-base font-bold text-white">Add Christian Video</h3>
                   <p className="text-xs text-slate-400">Live or recorded video will be checked against the Christian-content rules</p>
                 </div>
               </div>
@@ -903,13 +903,13 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               {/* URL */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">
-                  YouTube Video Link or ID *
+                  Video Link or ID *
                 </label>
                 <input
                   type="text"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=... or youtu.be/..."
+                  placeholder="Paste a video link or supported video ID"
                   required
                   className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none"
                 />
@@ -1036,7 +1036,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                   {isCheckingCustomUrl ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Checking YouTube Live Status...</span>
+                      <span>Checking Live Status...</span>
                     </>
                   ) : (
                     <span>Verify & Import</span>
@@ -1072,21 +1072,21 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
 
             <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
               <p>
-                GospelStream TV streams exclusively Christ-centered media live from YouTube. Our server-side live status detector inspects every stream in real-time:
+                GospelStream TV presents Christ-centered media with live status checked before it is shown in the app:
               </p>
 
               <div className="rounded-xl bg-slate-950 p-3 space-y-2 border border-slate-800">
                 <div className="flex items-start gap-2">
                   <span className="text-red-400 font-bold">🔴</span>
-                  <span><strong>Live Streams:</strong> When a church or ministry is broadcasting live right now on YouTube, it displays as <strong>LIVE</strong> with an active viewer count.</span>
+                  <span><strong>Live Streams:</strong> When a church or ministry is broadcasting live right now, it displays as <strong>LIVE</strong> with an active viewer count.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 font-bold">🎬</span>
-                  <span><strong>Recorded / Uploaded:</strong> When a sermon or study was previously recorded and uploaded, it shows as <strong>RECORDED</strong> with exact run-time duration.</span>
+                  <span><strong>Recorded:</strong> When a sermon or study was previously recorded, it shows as <strong>RECORDED</strong> with exact run-time duration.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold">✓</span>
-                  <span><strong>Continuous Discovery:</strong> Click "Keep Loading More" to load unlimited additional Christian live streams and messages directly from YouTube.</span>
+                  <span><strong>Continuous Discovery:</strong> Click "Keep Loading More" to load additional Christian live streams and messages.</span>
                 </div>
               </div>
 

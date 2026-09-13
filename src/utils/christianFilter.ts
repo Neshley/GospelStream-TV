@@ -81,7 +81,7 @@ export function extractYouTubeId(input: string): string | null {
 }
 
 export function getYouTubeEmbedUrl(id: string, options: { autoplay?: boolean; mute?: boolean; rel?: number; loop?: boolean } = {}) {
-  const params = new URLSearchParams({ autoplay: options.autoplay ? '1' : '0', mute: options.mute ? '1' : '0', rel: String(options.rel ?? 0), enablejsapi: '1', modestbranding: '1' });
+  const params = new URLSearchParams({ autoplay: options.autoplay ? '1' : '0', mute: options.mute ? '1' : '0', rel: String(options.rel ?? 0), enablejsapi: '1', modestbranding: '1', playsinline: '1' });
   if (options.loop) { params.set('loop', '1'); params.set('playlist', id); }
   if (typeof window !== 'undefined') params.set('origin', window.location.origin);
   return `https://www.youtube-nocookie.com/embed/${id}?${params}`;

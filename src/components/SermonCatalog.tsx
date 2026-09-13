@@ -43,7 +43,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
 
   const categories = [
     'All',
-    'Online YouTube',
+    'Online',
     'Sunday Sermons',
     'Faith & Healing',
     'Walking in the Spirit',
@@ -58,13 +58,13 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
   const recordedCount = sermons.filter((s) => !s.isLive).length;
 
   const filteredSermons = sermons.filter((sermon) => {
-    // Broadcast status filter (live vs recorded on YouTube)
+    // Broadcast status filter (live vs recorded)
     if (broadcastFilter === 'live' && !sermon.isLive) return false;
     if (broadcastFilter === 'recorded' && sermon.isLive) return false;
 
     const matchesCategory =
       selectedCategory === 'All' ||
-      (selectedCategory === 'Online YouTube' ? Boolean(sermon.isOnlineVideo || sermon.youtubeId) : sermon.category === selectedCategory);
+      (selectedCategory === 'Online' ? Boolean(sermon.isOnlineVideo || sermon.youtubeId) : sermon.category === selectedCategory);
     const query = searchQuery.toLowerCase().trim();
     if (!query) return matchesCategory;
 
@@ -104,7 +104,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
             )}
           </div>
 
-          {/* Broadcast Status Toggle (All vs Live on YouTube vs Recorded) */}
+          {/* Broadcast status filter */}
           <div className="flex items-center gap-1.5 rounded-2xl bg-slate-900/90 p-1 border border-slate-800">
             <button
               onClick={() => setBroadcastFilter('all')}
@@ -125,7 +125,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
               }`}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-ping" />
-              <span>Live on YouTube ({liveCount})</span>
+              <span>Live Now ({liveCount})</span>
             </button>
             <button
               onClick={() => setBroadcastFilter('recorded')}

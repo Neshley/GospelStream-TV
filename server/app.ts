@@ -129,14 +129,14 @@ async function searchYouTube(query: string, liveOnly: boolean) {
       verifiedChristian: true,
       verificationConfidence: verification.confidence,
       category: categoryFor(title),
-      series: live ? 'Live YouTube Broadcast' : 'Recorded Ministry Teaching',
+      series: live ? 'Live Broadcast' : 'Recorded Ministry Teaching',
       date: v.snippet?.publishedAt || '',
       description,
       chapters: [{ title: 'Full Video', time: 0 }],
       biblePassages: scripture ? [{ reference: scripture, translation: '', text: '' }] : [],
-      keyPoints: [live ? 'Currently live on YouTube.' : 'Recorded video available on YouTube.'],
+      keyPoints: [live ? 'Currently live.' : 'Recorded message available on demand.'],
       downloadSizeMb: 0,
-      tags: [live ? 'Live' : 'Recorded', 'YouTube', channel, categoryFor(title)],
+      tags: [live ? 'Live' : 'Recorded', channel, categoryFor(title)],
       viewsCount: '',
     };
   }).filter(Boolean);

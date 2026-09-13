@@ -270,7 +270,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
                     <CheckCircle2 className="h-4 w-4" />
                   </span>
                 ) : sermon.youtubeId ? (
-                  <span className="text-[10px] text-slate-500 text-right max-w-20">YouTube offline not available</span>
+                  <span className="text-[10px] text-slate-500 text-right max-w-20">Online video offline unavailable</span>
                 ) : (
                   <button
                     onClick={() => onDownloadSermon(sermon.id, 'source', sermon.downloadSizeMb)}
