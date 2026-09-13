@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { Sermon, SyncState } from '../types';
 import { 
-  ONLINE_CHRISTIAN_CATEGORIES 
+  ONLINE_CHRISTIAN_CATEGORIES,
+  ONLINE_CHRISTIAN_VIDEOS 
 } from '../data/christianOnlineData';
 import { 
   extractYouTubeId, 
@@ -73,9 +74,9 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'recorded'>('all');
   
-  // Real YouTube dynamic videos
-  const [youtubeVideos, setYoutubeVideos] = useState<Sermon[]>([]);
-  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  // Real YouTube dynamic videos initialized with verified Christian catalog
+  const [youtubeVideos, setYoutubeVideos] = useState<Sermon[]>(ONLINE_CHRISTIAN_VIDEOS);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [topicIndex, setTopicIndex] = useState<number>(0);
@@ -99,14 +100,20 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
 
   // Initial load directly from real YouTube API
   const loadInitialVideos = useCallback(async () => {
-    setIsInitialLoading(true);
     try {
       const res = await fetchChristianYouTubeVideos({
         query: 'Christian worship sermon live Bible',
         filter: 'all',
       });
       if (res.videos.length > 0) {
-        setYoutubeVideos(res.videos);
+        setYoutubeVideos((prev) => {
+          const map = new Map<string, Sermon>();
+          res.videos.forEach((v) => map.set(v.id, v));
+          prev.forEach((v) => {
+            if (!map.has(v.id)) map.set(v.id, v);
+          });
+          return Array.from(map.values());
+        });
       }
     } catch (err) {
       console.warn('Initial YouTube fetch error:', err);
