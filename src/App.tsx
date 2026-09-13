@@ -34,6 +34,7 @@ import { DeviceSyncModal } from './components/DeviceSyncModal';
 import { TvRemoteOverlay } from './components/TvRemoteOverlay';
 import { AlertsPopover } from './components/AlertsPopover';
 import { OnlineChristianVideos } from './components/OnlineChristianVideos';
+import { HomeExperience } from './components/HomeExperience';
 import { ONLINE_CHRISTIAN_VIDEOS } from './data/christianOnlineData';
 import { cacheDirectMedia, deleteCachedMedia } from './services/offlineService';
 import { extractYouTubeId } from './utils/christianFilter';
@@ -387,89 +388,28 @@ export default function App() {
           ? 'max-w-[1500px] p-6 lg:p-8'
           : 'max-w-7xl'
       }`}>
-        {/* TAB: LIVE TV */}
+        {/* TAB: HOME / LIVE EXPERIENCE */}
         {currentTab === 'live-tv' && (
-          <div className="space-y-8 animate-in fade-in duration-300 page-home">
-            {/* TV Player */}
-            <LiveTvPlayer
-              currentChannel={currentChannel}
-              channels={channels}
-              onSelectChannel={(ch) => {
-                setCurrentChannel(ch);
-                showToast(`Watching CH ${ch.number}: ${ch.name}`);
-              }}
-              onOpenGuide={() => setCurrentTab('guide')}
-              onOpenSermonModal={(sermonId) => {
-                const s = allSermons.find((item) => item.id === sermonId);
-                if (s) setSelectedSermon(s);
-              }}
-              isFavoriteChannel={syncState.favorites.includes(currentChannel.id)}
-              onToggleFavoriteChannel={(id) => handleToggleFavorite(id)}
-              onOpenSyncModal={() => setIsSyncModalOpen(true)}
-              deviceMode={deviceMode}
+          <div className="page-home">
+            <HomeExperience
+              sermons={displayedSermons}
+              syncState={syncState}
+              onPlay={(s) => setSelectedSermon(s)}
+              onNavigate={(tab) => setCurrentTab(tab)}
             />
-
-            {/* Quick Sermons Shelf Below TV */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <h3 className="font-display text-lg font-bold text-white tracking-tight">
-                    Christian Videos Live From YouTube
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setCurrentTab('online-videos')}
-                  className="text-xs font-semibold text-blue-400 hover:text-blue-300"
-                >
-                  Explore All YouTube Feeds →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {displayedSermons.slice(0, 4).map((sermon) => (
-                  <div
-                    key={sermon.id}
-                    onClick={() => setSelectedSermon(sermon)}
-                    className="group cursor-pointer rounded-2xl bg-slate-900/80 p-3 border border-slate-800 hover:border-blue-500/50 transition-all hover:-translate-y-1 shadow-lg"
-                  >
-                    <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 mb-2.5">
-                      <img
-                        src={sermon.thumbnailUrl}
-                        alt={sermon.title}
-                        referrerPolicy="no-referrer"
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-
-                      {/* LIVE vs RECORDED status */}
-                      {sermon.isLive ? (
-                        <div className="absolute top-1.5 right-1.5 rounded-lg bg-red-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white flex items-center gap-1 shadow animate-pulse">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
-                          <span>LIVE</span>
-                        </div>
-                      ) : (
-                        <div className="absolute top-1.5 right-1.5 rounded-lg bg-slate-900/90 border border-slate-700 px-1.5 py-0.5 text-[9px] font-semibold text-slate-300 flex items-center gap-1 shadow">
-                          <Film className="h-2.5 w-2.5 text-blue-400" />
-                          <span>RECORDED</span>
-                        </div>
-                      )}
-
-                      <div className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 text-[10px] font-mono ${
-                        sermon.isLive ? 'bg-red-600 text-white font-bold animate-pulse' : 'bg-black/80 text-slate-200'
-                      }`}>
-                        {sermon.isLive ? 'LIVE' : sermon.durationFormatted}
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono text-amber-400 font-semibold">📖 {sermon.scripture}</span>
-                    <h4 className="text-xs font-bold text-white group-hover:text-blue-300 transition line-clamp-1 mt-0.5">
-                      {sermon.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">{sermon.preacher}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="home-live-stage">
+              <div className="stage-label"><Radio size={16} /> CHANNELS & LIVE TELEVISION</div>
+              <LiveTvPlayer
+                currentChannel={currentChannel}
+                channels={channels}
+                onSelectChannel={(ch) => { setCurrentChannel(ch); showToast(`Watching CH ${ch.number}: ${ch.name}`); }}
+                onOpenGuide={() => setCurrentTab('guide')}
+                onOpenSermonModal={(sermonId) => { const s = allSermons.find((item) => item.id === sermonId); if (s) setSelectedSermon(s); }}
+                isFavoriteChannel={syncState.favorites.includes(currentChannel.id)}
+                onToggleFavoriteChannel={(id) => handleToggleFavorite(id)}
+                onOpenSyncModal={() => setIsSyncModalOpen(true)}
+                deviceMode={deviceMode}
+              />
             </div>
           </div>
         )}

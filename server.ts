@@ -2,10 +2,11 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import { createServer as createViteServer } from 'vite';
 import { verifyChristianContent, checkSearchRelevance } from './src/utils/christianFilter';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 const CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_QUERY_LENGTH = 120;
 const MAX_BODY_BYTES = 256 * 1024;
@@ -23,9 +24,7 @@ app.use(express.json({ limit: MAX_BODY_BYTES }));
 
 const cache = new Map<string, { timestamp: number; data: unknown }>();
 const requestBuckets = new Map<string, { started: number; count: number }>();
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const syncDir = isServerless ? path.join('/tmp', 'data') : path.join(process.cwd(), 'data');
-const syncFile = path.join(syncDir, 'sync-state.json');
+const syncFile = path.join(process.cwd(), 'data', 'sync-state.json');
 type StoredSync = { state: unknown; updatedAt: number; expiresAt: number };
 let syncStore: Record<string, StoredSync> = {};
 let syncLoaded = false;
@@ -41,16 +40,12 @@ async function loadSyncStore() {
 }
 
 async function persistSyncStore() {
-  try {
-    await fs.mkdir(path.dirname(syncFile), { recursive: true });
-    const now = Date.now();
-    for (const [code, entry] of Object.entries(syncStore)) {
-      if (entry.expiresAt <= now) delete syncStore[code];
-    }
-    await fs.writeFile(syncFile, JSON.stringify(syncStore), 'utf8');
-  } catch (err) {
-    // Graceful fallback to memory store if filesystem is read-only
+  await fs.mkdir(path.dirname(syncFile), { recursive: true });
+  const now = Date.now();
+  for (const [code, entry] of Object.entries(syncStore)) {
+    if (entry.expiresAt <= now) delete syncStore[code];
   }
+  await fs.writeFile(syncFile, JSON.stringify(syncStore), 'utf8');
 }
 
 function rateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -313,7 +308,6 @@ app.post('/api/sync/code', async (_req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
@@ -323,13 +317,4 @@ async function startServer() {
   }
   app.listen(PORT, '0.0.0.0', () => console.log(`GospelStream Server running on http://localhost:${PORT}`));
 }
-
-export { app };
-export default app;
-
-if (!process.env.VERCEL) {
-  startServer().catch((error) => {
-    console.error('Server startup error:', error);
-    process.exit(1);
-  });
-}
+startServer().catch((error) => { console.error(error); process.exit(1); });
