@@ -40,7 +40,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
     setBusy(true); setErrorMessage(null);
     try {
       await onPairDevice(cleanCode);
-      setPairSuccessMessage(`Paired with ${cleanCode}. Library, notes, reminders, and watch progress will sync through the server.`);
+      setPairSuccessMessage(`Paired securely. Your library, notes, reminders, and watch progress can now sync through the server.`);
       setInputCode('');
       setTimeout(() => setPairSuccessMessage(null), 5000);
     } catch (error: any) { setErrorMessage(error?.message || 'Could not pair this device.'); }
@@ -51,7 +51,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
     setBusy(true); setErrorMessage(null);
     try {
       const newCode = await onGenerateSyncCode();
-      setPairSuccessMessage(`New cloud pairing code created: ${newCode}`);
+      setPairSuccessMessage(`New one-time pairing code created: ${newCode}`);
       setTimeout(() => setPairSuccessMessage(null), 4000);
     } catch (error: any) { setErrorMessage(error?.message || 'Could not create a pairing code.'); }
     finally { setBusy(false); }
@@ -106,45 +106,39 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
 
 
 
-        {/* Device Sync Code Showcase */}
+        {/* Secure pairing */}
         <div className="rounded-3xl bg-gradient-to-br from-slate-950 to-blue-950/50 p-6 border border-slate-800 text-center space-y-4">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-blue-400">
-            THIS DEVICE'S SYNC CODE
-          </span>
-
-          <div className="flex items-center justify-center gap-4">
-            <div className="rounded-2xl bg-slate-900 px-6 py-3 border-2 border-blue-500/40 font-mono text-3xl font-extrabold tracking-widest text-amber-400 shadow-inner">
-              {syncState.syncCode}
-            </div>
-
-            <button
-              onClick={handleCopyCode}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-3.5 py-3 text-xs font-semibold text-slate-200 border border-slate-700 transition active:scale-95"
-              title="Copy Code"
-            >
-              {copySuccess ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-              <span>{copySuccess ? 'Copied' : 'Copy'}</span>
-            </button>
-
-            <button
-              onClick={handleGenerateNewCode}
-              disabled={busy}
-              className="rounded-xl bg-slate-800 hover:bg-slate-700 p-3 text-slate-400 hover:text-white transition"
-              title="Generate New Sync Code"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+          <div className="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-blue-400">
+            <ShieldCheck className="h-4 w-4" /> SECURE DEVICE SYNC
           </div>
-
-          <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Open GospelStream TV on another device and enter this pairing code. The server stores the shared library state for 30 days; do not share the code publicly.
-          </p>
+          {syncState.syncToken ? (
+            <div className="space-y-2">
+              <div className="text-lg font-bold text-emerald-300">Cloud sync is connected</div>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">This device has a private sync token. Your library data can sync securely; downloaded media stays on this device.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-lg font-bold text-white">Connect this device to cloud sync</div>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">Generate a one-time code to pair another screen, or enter a code shown on another GospelStream device.</p>
+              <button onClick={handleGenerateNewCode} disabled={busy} className="rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-2.5 text-xs font-bold text-white">Generate Pairing Code</button>
+            </div>
+          )}
+          {syncState.syncCode && !pairSuccessMessage && (
+            <div className="pt-2">
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">One-time pairing code</div>
+              <div className="flex items-center justify-center gap-3">
+                <div className="rounded-2xl bg-slate-900 px-5 py-2.5 border-2 border-blue-500/40 font-mono text-2xl font-extrabold tracking-widest text-amber-400">{syncState.syncCode}</div>
+                <button onClick={handleCopyCode} className="rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-2.5 text-xs font-semibold text-slate-200">{copySuccess ? 'Copied' : 'Copy'}</button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">Expires in 10 minutes and can be used once.</p>
+            </div>
+          )}
         </div>
 
         {/* Enter Code to Pair Another Device */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Pair with Another Screen / Smart TV
+            Enter a code from another device
           </h4>
 
           <form onSubmit={handlePairDevice} className="flex gap-2">
@@ -170,17 +164,17 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Active Synced Ecosystem
+              Sync status
             </h4>
             <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              Auto-Syncing Active
+              Connected
             </span>
           </div>
 
           <div className="rounded-2xl bg-slate-950/80 p-4 border border-slate-800 text-xs text-slate-300 space-y-2">
-            <p><strong>Current device:</strong> {syncState.deviceName}</p>
-            <p className="text-slate-500">Paired devices use the same code to read and write the shared state. Playback itself remains on the device because browser apps cannot remotely control an unrelated screen without a dedicated receiver.</p>
+            <p><strong>This device:</strong> {syncState.deviceName}</p>
+            <p className="text-slate-500">Pairing uses a short-lived code and a private device token. Playback remains local to each device; syncing does not remotely control another screen.</p>
           </div>
 
         </div>

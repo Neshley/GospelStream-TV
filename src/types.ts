@@ -64,6 +64,7 @@ export interface Sermon {
   downloadSizeMb: number;
   tags: string[];
   viewsCount: string;
+  isDemo?: boolean;
 }
 
 export interface LiveEvent {
@@ -80,6 +81,7 @@ export interface LiveEvent {
   thumbnail: string;
   scriptureTheme: string;
   badgeText: string;
+  isDemo?: boolean;
 }
 
 export interface SermonNote {
@@ -101,7 +103,7 @@ export interface ContinueWatchingItem {
 export interface DownloadedItem {
   sermonId: string;
   downloadedAt: string;
-  quality: '1080p' | '720p' | 'Audio Only';
+  quality: 'source';
   sizeMb: number;
   sourceUrl?: string;
   storageKey?: string;
@@ -116,6 +118,7 @@ export interface UserProfile {
 
 export interface SyncState {
   syncCode: string;
+  syncToken?: string;
   lastSynced: string;
   deviceName: string;
   currentProfileId: string;

@@ -44,7 +44,7 @@ interface SermonPlayerProps {
   onSaveProgress: (sermonId: string, progressSeconds: number, totalSeconds: number) => void;
   onSaveNote: (note: { sermonId: string; sermonTitle: string; timestamp: number; content: string }) => void;
   onDeleteNote: (noteId: string) => void;
-  onDownloadSermon: (sermonId: string, quality: '1080p' | '720p' | 'Audio Only', sizeMb: number) => void;
+  onDownloadSermon: (sermonId: string, quality: 'source', sizeMb: number) => Promise<void> | void;
   onOpenSyncModal: () => void;
   isOfflineMode: boolean;
 }
@@ -77,7 +77,8 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
 
   const isFavorite = syncState.favorites.includes(sermon.id);
   const isWatchLater = syncState.watchLater.includes(sermon.id);
-  const isDownloaded = syncState.downloadedSermons.some((d) => d.sermonId === sermon.id);
+  const downloadedItem = syncState.downloadedSermons.find((d) => d.sermonId === sermon.id);
+  const isDownloaded = Boolean(downloadedItem);
 
   const youtubeVideoId = sermon.youtubeId || extractYouTubeId(sermon.videoUrl);
   const isYouTubeVideo = Boolean(youtubeVideoId);
@@ -172,13 +173,14 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
     setNewNoteText('');
   };
 
-  const startDownload = (quality: '1080p' | '720p' | 'Audio Only') => {
+  const startDownload = () => {
     if (isDownloaded || isYouTubeVideo || isDownloading) return;
     setIsDownloading(true); setDownloadProgress(0);
     // The parent performs the real IndexedDB download. This component only reports UI progress.
-    onDownloadSermon(sermon.id, quality, sermon.downloadSizeMb);
-    setDownloadProgress(100);
-    setIsDownloading(false);
+    Promise.resolve(onDownloadSermon(sermon.id, 'source', sermon.downloadSizeMb))
+      .then(() => setDownloadProgress(100))
+      .catch(() => {})
+      .finally(() => setIsDownloading(false));
   };
 
   const formatSeconds = (sec: number) => {
@@ -410,7 +412,7 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                 ) : isDownloaded ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 border border-emerald-500/30">
                     <Check className="h-4 w-4" />
-                    <span>Downloaded ({sermon.downloadSizeMb} MB)</span>
+                    <span>Downloaded ({downloadedItem?.sizeMb ?? 0} MB)</span>
                   </span>
                 ) : isDownloading ? (
                   <div className="flex items-center gap-2 rounded-xl bg-blue-500/20 px-3 py-1.5 text-xs font-bold text-blue-300 border border-blue-500/30">
@@ -419,7 +421,7 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                   </div>
                 ) : (
                   <button
-                    onClick={() => startDownload('1080p')}
+                    onClick={() => startDownload()}
                     className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 px-3 py-1.5 text-xs font-semibold text-slate-200 border border-slate-700 transition"
                     title="Save this direct media file to this device"
                   >
@@ -448,7 +450,7 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                 )}
                 <span className="flex items-center gap-1 text-xs text-emerald-300 font-medium">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span>Verified Christian Content</span>
+                  <span>Christian-content match</span>
                 </span>
               </div>
               <a

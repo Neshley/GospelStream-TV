@@ -49,17 +49,12 @@ interface OnlineChristianVideosProps {
   onAddCustomChristianVideo?: (video: Sermon) => void;
 }
 
-const CONTINUOUS_SEARCH_TOPICS = [
-  'Christian worship live stream 24/7',
-  'Gospel praise sermon live Sunday service',
-  'Charles Stanley In Touch Ministries sermon',
-  'Elevation Worship Maverick City Music live',
-  'Billy Graham crusade sermon recorded',
-  'Desiring God John Piper sermon Romans',
-  'Perpetual Eucharistic Adoration live Catholic',
-  'Acoustic Christian prayer piano instrumental worship',
-  'Christian Bible study expository teaching',
-  'Global Prayer Room IHOPKC livestream 24/7'
+const DISCOVERY_TOPICS = [
+  'Christian worship live stream',
+  'Christian sermon Bible study',
+  'gospel preaching live',
+  'Christian prayer worship',
+  'Bible teaching Christian ministry',
 ];
 
 export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
@@ -175,7 +170,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     if (isFetchingMore) return;
     setIsFetchingMore(true);
     try {
-      const nextTopic = CONTINUOUS_SEARCH_TOPICS[topicIndex % CONTINUOUS_SEARCH_TOPICS.length];
+      const nextTopic = DISCOVERY_TOPICS[topicIndex % DISCOVERY_TOPICS.length];
       setTopicIndex((prev) => prev + 1);
 
       const res = await fetchChristianYouTubeVideos({
@@ -265,9 +260,6 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         if (first.isIntersecting) {
           if (hasMoreToDisplay) {
             setVisibleCount((prev) => Math.min(prev + 8, filteredVideos.length));
-          } else if (!isFetchingMore && youtubeVideos.length > 0) {
-            // Auto fetch more from YouTube when reaching end
-            handleFetchMoreFromYouTube();
           }
         }
       },
@@ -308,42 +300,24 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
       return;
     }
 
-    if (!inputTitle.trim()) {
-      setImportStatusMessage({
-        text: 'Please enter the title of the Christian sermon or message.',
-        isError: true,
-      });
-      return;
-    }
-
-    // Run strict Christian verification
-    const verification = verifyChristianContent(
-      inputTitle,
-      `${inputScripture} Christian broadcast`,
-      inputMinistry || 'Christian Ministry'
-    );
-
-    if (!verification.isChristian) {
-      setImportStatusMessage({
-        text: verification.blockedReason || 'This video could not be verified as Christian faith content. Only sermons, gospel worship, and Bible studies are permitted.',
-        isError: true,
-      });
-      return;
-    }
-
     setIsCheckingCustomUrl(true);
     try {
       // Check whether this specific video is currently live on YouTube
       const statusRes = await checkYouTubeVideoStatus(youtubeId);
       if (!statusRes.available) throw new Error('YouTube status verification is unavailable. Configure YOUTUBE_API_KEY on the server before importing videos.');
+      if (!statusRes.verifiedChristian || (statusRes.verificationConfidence || 0) < 75) {
+        throw new Error('This YouTube video did not meet the server-side Christian-content threshold. Try a sermon, worship service, Bible study, or ministry broadcast.');
+      }
       const isLiveNow = statusRes.isLive;
+      const displayTitle = inputTitle.trim() || statusRes.title || 'Christian YouTube video';
+      const scriptureRef = inputScripture.trim();
 
       const newVideo: Sermon = {
         id: `yt-import-${youtubeId}-${Date.now()}`,
-        title: inputTitle.trim(),
-        preacher: inputMinistry.trim() || statusRes.author || 'Guest Pastor',
-        ministry: inputMinistry.trim() || 'Christian Ministry',
-        scripture: inputScripture.trim() || 'Scripture Reference',
+        title: displayTitle,
+        preacher: inputMinistry.trim() || statusRes.author || 'YouTube Ministry',
+        ministry: inputMinistry.trim() || statusRes.author || 'YouTube Ministry',
+        scripture: scriptureRef,
         scriptureText: '',
         duration: isLiveNow ? 0 : 2700,
         durationFormatted: isLiveNow ? 'LIVE' : '45:00',
@@ -356,13 +330,13 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         verifiedChristian: true,
         category: inputCategory,
         date: isLiveNow ? 'Streaming Live on YouTube' : 'Uploaded to YouTube',
-        description: `${inputTitle}. ${isLiveNow ? '🔴 Live Stream currently on YouTube.' : '🎬 Recorded Christian message.'}`,
+        description: statusRes.description || `${displayTitle}. ${isLiveNow ? 'Live on YouTube.' : 'Recorded on YouTube.'}`,
         chapters: [
           { title: isLiveNow ? 'Live Stream' : 'Full Sermon / Worship', time: 0 },
         ],
         biblePassages: [
           {
-            reference: inputScripture || '',
+            reference: scriptureRef,
             translation: '',
             text: ''
           }
@@ -372,7 +346,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
           isLiveNow ? 'Real-time live stream from YouTube.' : 'Recorded and uploaded video on demand.'
         ],
         downloadSizeMb: 0,
-        tags: ['Live from YouTube', isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory],
+        tags: ['YouTube', isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory, statusRes.author || 'Ministry'],
         viewsCount: isLiveNow ? 'Live on YouTube' : 'Recorded Video'
       };
 
@@ -463,7 +437,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
               ) : (
                 <Tv className="h-4 w-4 text-white" />
               )}
-              <span>{isFetchingMore ? 'Fetching More...' : 'Fetch More Live Feeds'}</span>
+              <span>{isFetchingMore ? 'Discovering...' : 'Discover More Christian Videos'}</span>
             </button>
 
             <button
@@ -760,10 +734,10 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/30" />
 
-                      {/* Verified Christian Shield Badge */}
+                      {/* Christian-content match Shield Badge */}
                       <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow backdrop-blur-sm">
                         <ShieldCheck className="h-3 w-3 text-white" />
-                        <span>Verified Christian</span>
+                        <span>Christian-content match</span>
                       </div>
 
                       {/* LIVE vs RECORDED badge */}
@@ -1017,12 +991,12 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                     {liveVerification.isChristian ? (
                       <>
                         <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                        <span>Verified Christian Content</span>
+                        <span>Christian-content match</span>
                       </>
                     ) : (
                       <>
                         <ShieldAlert className="h-4 w-4 text-amber-400" />
-                        <span>Christian Verification Required</span>
+                        <span>Christian-content classification required</span>
                       </>
                     )}
                   </div>

@@ -26,7 +26,7 @@ interface SermonCatalogProps {
   syncState: SyncState;
   onToggleFavorite: (sermonId: string) => void;
   onToggleWatchLater: (sermonId: string) => void;
-  onDownloadSermon: (sermonId: string, quality: '1080p' | '720p' | 'Audio Only', sizeMb: number) => void;
+  onDownloadSermon: (sermonId: string, quality: 'source', sizeMb: number) => Promise<void> | void;
 }
 
 export const SermonCatalog: React.FC<SermonCatalogProps> = ({
@@ -266,6 +266,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                    {sermon.isDemo && <span className="absolute top-2.5 left-2.5 rounded-lg bg-slate-950/90 border border-slate-700 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-300">Starter content</span>}
 
                     {/* Duration or LIVE Badge */}
                     <div className={`absolute bottom-2.5 right-2.5 rounded-lg px-2 py-0.5 text-[11px] font-mono font-semibold backdrop-blur-sm ${
@@ -366,7 +367,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
 
                         {!isDownloaded && (
                           <button
-                            onClick={() => onDownloadSermon(sermon.id, '1080p', sermon.downloadSizeMb)}
+                            onClick={() => onDownloadSermon(sermon.id, 'source', sermon.downloadSizeMb)}
                             className="rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition"
                             title="Download for Offline Playback"
                           >

@@ -5,11 +5,9 @@ import {
   SyncState, 
   Channel, 
   Sermon, 
-  LiveEvent,
   SermonNote 
 } from './types';
 import { 
-  CHANNELS, 
   SERMONS, 
   UPCOMING_EVENTS 
 } from './data/mockData';
@@ -20,6 +18,7 @@ import {
   uploadSyncState,
   downloadSyncState,
   createCloudSyncCode,
+  pairCloudSyncCode,
   sendLocalNotification 
 } from './services/storageService';
 import { Header } from './components/Header';
@@ -35,8 +34,7 @@ import { TvRemoteOverlay } from './components/TvRemoteOverlay';
 import { AlertsPopover } from './components/AlertsPopover';
 import { OnlineChristianVideos } from './components/OnlineChristianVideos';
 import { HomeExperience } from './components/HomeExperience';
-import { ONLINE_CHRISTIAN_VIDEOS } from './data/christianOnlineData';
-import { cacheDirectMedia, deleteCachedMedia } from './services/offlineService';
+import { cacheDirectMedia, deleteCachedMedia, listCachedMediaIds } from './services/offlineService';
 import { extractYouTubeId } from './utils/christianFilter';
 import { 
   Tv, 
@@ -56,8 +54,8 @@ import {
 export default function App() {
   const [syncState, setSyncState] = useState<SyncState>(loadSyncState);
   const [currentTab, setCurrentTab] = useState<AppTab>('live-tv');
-  const [channels, setChannels] = useState<Channel[]>(CHANNELS);
-  const [currentChannel, setCurrentChannel] = useState<Channel>(CHANNELS[0]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [selectedSermon, setSelectedSermon] = useState<Sermon | null>(null);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>('desktop');
   const [isTvRemoteOpen, setIsTvRemoteOpen] = useState(false);
@@ -65,8 +63,20 @@ export default function App() {
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [customOnlineVideos, setCustomOnlineVideos] = useState<Sermon[]>([]);
+  const [customOnlineVideos, setCustomOnlineVideos] = useState<Sermon[]>(() => {
+    try { return JSON.parse(localStorage.getItem('gospelstream_custom_videos_v1') || '[]'); } catch { return []; }
+  });
   const [liveYouTubeSermons, setLiveYouTubeSermons] = useState<Sermon[]>([]);
+
+  // Reconcile the visible download list with the actual device cache. Cloud sync never supplies media bytes.
+  useEffect(() => {
+    listCachedMediaIds().then((ids) => {
+      setSyncState((prev) => {
+        const valid = prev.downloadedSermons.filter((item) => ids.includes(item.storageKey || item.sermonId));
+        return valid.length === prev.downloadedSermons.length ? prev : { ...prev, downloadedSermons: valid };
+      });
+    }).catch(() => {});
+  }, []);
 
   // Dynamically load YouTube live Christian channels and videos
   useEffect(() => {
@@ -96,10 +106,12 @@ export default function App() {
     loadFeeds();
   }, []);
 
+  useEffect(() => { try { localStorage.setItem('gospelstream_custom_videos_v1', JSON.stringify(customOnlineVideos)); } catch { /* best effort */ } }, [customOnlineVideos]);
+
   // Combined library: keep the built-in catalog and add verified YouTube results.
   const allSermons = React.useMemo(() => {
     const map = new Map<string, Sermon>();
-    [...SERMONS, ...ONLINE_CHRISTIAN_VIDEOS, ...liveYouTubeSermons, ...customOnlineVideos].forEach((s) => map.set(s.id, s));
+    [...SERMONS, ...liveYouTubeSermons, ...customOnlineVideos].forEach((s) => map.set(s.id, s));
     return [...map.values()];
   }, [liveYouTubeSermons, customOnlineVideos]);
 
@@ -107,6 +119,7 @@ export default function App() {
   useEffect(() => {
     saveSyncState(syncState);
     const timer = window.setTimeout(() => {
+      if (!syncState.syncToken) return;
       uploadSyncState(syncState)
         .then((uploaded) => setSyncState((prev) => prev.lastSynced === syncState.lastSynced ? { ...prev, lastSynced: uploaded.lastSynced } : prev))
         .catch((error) => console.warn('Cloud sync unavailable:', error));
@@ -118,16 +131,16 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeToCrossDeviceSync((remoteState) => setSyncState(remoteState));
     const timer = window.setInterval(async () => {
-      if (!syncState.syncCode) return;
+      if (!syncState.syncToken) return;
       try {
-        const remote = await downloadSyncState(syncState.syncCode);
+        const remote = await downloadSyncState(syncState.syncToken);
         const remoteTime = Date.parse(remote.lastSynced);
         const localTime = Date.parse(syncState.lastSynced);
         if (remoteTime > localTime + 1000) setSyncState(remote);
       } catch { /* pairing code may not exist yet */ }
     }, 5000);
     return () => { unsubscribe(); window.clearInterval(timer); };
-  }, [syncState.syncCode, syncState.lastSynced]);
+  }, [syncState.syncToken, syncState.lastSynced]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -192,6 +205,7 @@ export default function App() {
 
   // Channel changing
   const changeChannelDelta = (delta: number) => {
+    if (!currentChannel || channels.length === 0) return;
     const currentIndex = channels.findIndex((c) => c.id === currentChannel.id);
     let nextIndex = currentIndex < 0 ? 0 : currentIndex + delta;
     if (nextIndex < 0) nextIndex = channels.length - 1;
@@ -300,7 +314,7 @@ export default function App() {
     showToast('All broadcast reminders cleared');
   }, []);
 
-  const handleDownloadSermon = useCallback(async (sermonId: string, quality: '1080p' | '720p' | 'Audio Only', _sizeMb: number) => {
+  const handleDownloadSermon = useCallback(async (sermonId: string, _quality: 'source', _sizeMb: number) => {
     const sermon = allSermons.find((s) => s.id === sermonId);
     if (!sermon) return;
     if (sermon.youtubeId || extractYouTubeId(sermon.videoUrl)) {
@@ -310,7 +324,7 @@ export default function App() {
     try {
       const result = await cacheDirectMedia(sermon.id, sermon.videoUrl);
       setSyncState((prev) => ({ ...prev, downloadedSermons: [
-        { sermonId, downloadedAt: new Date().toISOString(), quality, sizeMb: result.sizeMb, sourceUrl: sermon.videoUrl, storageKey: sermon.id },
+        { sermonId, downloadedAt: new Date().toISOString(), quality: 'source', sizeMb: result.sizeMb, sourceUrl: sermon.videoUrl, storageKey: sermon.id },
         ...prev.downloadedSermons.filter((d) => d.sermonId !== sermonId),
       ] }));
       showToast(`Saved ${result.sizeMb} MB to this device for offline playback.`);
@@ -361,17 +375,7 @@ export default function App() {
           setCurrentTab(tab);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        deviceMode={deviceMode}
-        onDeviceModeChange={setDeviceMode}
-        isTvRemoteOpen={isTvRemoteOpen}
-        onToggleTvRemote={() => setIsTvRemoteOpen(!isTvRemoteOpen)}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        isOfflineMode={isOfflineMode}
-        onToggleOfflineMode={() => {
-          const next = !isOfflineMode;
-          setIsOfflineMode(next);
-          showToast(next ? 'Offline mode enabled: only media cached on this device is shown.' : 'Online mode restored');
-        }}
         syncState={syncState}
         onSelectProfile={handleSelectProfile}
         unreadAlertsCount={syncState.reminders.length}
@@ -399,17 +403,26 @@ export default function App() {
             />
             <div className="home-live-stage">
               <div className="stage-label"><Radio size={16} /> CHANNELS & LIVE TELEVISION</div>
-              <LiveTvPlayer
-                currentChannel={currentChannel}
-                channels={channels}
-                onSelectChannel={(ch) => { setCurrentChannel(ch); showToast(`Watching CH ${ch.number}: ${ch.name}`); }}
-                onOpenGuide={() => setCurrentTab('guide')}
-                onOpenSermonModal={(sermonId) => { const s = allSermons.find((item) => item.id === sermonId); if (s) setSelectedSermon(s); }}
-                isFavoriteChannel={syncState.favorites.includes(currentChannel.id)}
-                onToggleFavoriteChannel={(id) => handleToggleFavorite(id)}
-                onOpenSyncModal={() => setIsSyncModalOpen(true)}
-                deviceMode={deviceMode}
-              />
+              {currentChannel ? (
+                <LiveTvPlayer
+                  currentChannel={currentChannel}
+                  channels={channels}
+                  onSelectChannel={(ch) => { setCurrentChannel(ch); showToast(`Watching CH ${ch.number}: ${ch.name}`); }}
+                  onOpenGuide={() => setCurrentTab('guide')}
+                  onOpenSermonModal={(sermonId) => { const s = allSermons.find((item) => item.id === sermonId); if (s) setSelectedSermon(s); }}
+                  isFavoriteChannel={syncState.favorites.includes(currentChannel.id)}
+                  onToggleFavoriteChannel={(id) => handleToggleFavorite(id)}
+                  onOpenSyncModal={() => setIsSyncModalOpen(true)}
+                  deviceMode={deviceMode}
+                />
+              ) : (
+                <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-10 text-center">
+                  <Radio className="mx-auto mb-3 h-10 w-10 text-slate-600" />
+                  <h2 className="text-lg font-bold text-white">No verified live channels right now</h2>
+                  <p className="mx-auto mt-2 max-w-lg text-sm text-slate-400">Live channels appear only after the YouTube API confirms an active Christian-content broadcast. Configure YOUTUBE_API_KEY on the server or open Discover to browse verified videos.</p>
+                  <button onClick={() => setCurrentTab('online-videos')} className="mt-5 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-500">Open Discover</button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -424,7 +437,7 @@ export default function App() {
               onToggleWatchLater={handleToggleWatchLater}
               onAddCustomChristianVideo={(newV) => {
                 setCustomOnlineVideos((prev) => [newV, ...prev]);
-                showToast(`Added verified Christian video "${newV.title}" to the catalog.`);
+                showToast(`Added Christian-content match "${newV.title}" to your library.`);
               }}
             />
           </div>
@@ -433,7 +446,7 @@ export default function App() {
         {/* TAB: EPG PROGRAM GUIDE */}
         {currentTab === 'guide' && (
           <div className="animate-in fade-in duration-300 page-view">
-            <ChannelGuide
+            {currentChannel ? <ChannelGuide
               channels={channels}
               currentChannel={currentChannel}
               onSelectChannel={(ch) => {
@@ -444,7 +457,7 @@ export default function App() {
               reminders={syncState.reminders}
               onToggleReminder={handleToggleReminder}
               onCloseGuide={() => setCurrentTab('live-tv')}
-            />
+            /> : <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-10 text-center text-sm text-slate-400">No verified live channel data is available yet.</div>}
           </div>
         )}
 
@@ -485,7 +498,8 @@ export default function App() {
               syncState={syncState}
               onToggleReminder={handleToggleReminder}
               onTuneToChannel={(channelId) => {
-                const target = channels.find((c) => c.id === channelId) || channels[0];
+                const target = channels.find((c) => c.id === channelId);
+                if (!target) { showToast('That live channel is not currently available.'); return; }
                 setCurrentChannel(target);
                 setCurrentTab('live-tv');
                 showToast(`Tuned to ${target.name}`);
@@ -500,8 +514,7 @@ export default function App() {
             <OfflineDownloads
               sermons={allSermons}
               syncState={syncState}
-              isOfflineMode={isOfflineMode}
-              onToggleOfflineMode={() => setIsOfflineMode(!isOfflineMode)}
+                    onToggleOfflineMode={() => setIsOfflineMode(!isOfflineMode)}
               onSelectSermon={(s) => setSelectedSermon(s)}
               onDeleteDownload={handleDeleteDownload}
               onDownloadSermon={handleDownloadSermon}
@@ -524,8 +537,7 @@ export default function App() {
           onDeleteNote={handleDeleteNote}
           onDownloadSermon={handleDownloadSermon}
           onOpenSyncModal={() => setIsSyncModalOpen(true)}
-          isOfflineMode={isOfflineMode}
-        />
+          />
       )}
 
       {/* Cross-Device Sync Modal */}
@@ -534,14 +546,20 @@ export default function App() {
         onClose={() => setIsSyncModalOpen(false)}
         syncState={syncState}
         onPairDevice={async (code) => {
-          const remote = await downloadSyncState(code);
-          setSyncState(remote);
-          showToast('This device is now paired and syncing through the server.');
+          const paired = await pairCloudSyncCode(code);
+          setSyncState((prev) => ({
+            ...(paired.state || prev),
+            syncToken: paired.token,
+            syncCode: code,
+            downloadedSermons: prev.downloadedSermons,
+            lastSynced: new Date().toISOString(),
+          }));
+          showToast('This device is paired. Your library will sync securely.');
         }}
         onGenerateSyncCode={async () => {
-          const code = await createCloudSyncCode();
-          setSyncState((prev) => ({ ...prev, syncCode: code }));
-          return code;
+          const result = await createCloudSyncCode();
+          setSyncState((prev) => ({ ...prev, syncCode: result.code, syncToken: result.token }));
+          return result.code;
         }}
       />
 
@@ -553,7 +571,8 @@ export default function App() {
         syncState={syncState}
         onToggleReminder={handleToggleReminder}
         onTuneToChannel={(channelId) => {
-          const target = channels.find((c) => c.id === channelId) || channels[0];
+          const target = channels.find((c) => c.id === channelId);
+          if (!target) { showToast('That live channel is not currently available.'); return; }
           setCurrentChannel(target);
           setCurrentTab('live-tv');
           showToast(`Tuned to ${target.name}`);
@@ -602,7 +621,7 @@ export default function App() {
         }}
         isPlaying={true}
         isMuted={false}
-        currentChannelNum={currentChannel.number}
+        currentChannelNum={currentChannel?.number || 0}
       />
 
       {/* Floating In-App Toast Alert */}

@@ -87,11 +87,14 @@ export async function checkYouTubeVideoStatus(videoId: string): Promise<{
   title: string;
   author: string;
   available: boolean;
+  description?: string;
+  verifiedChristian?: boolean;
+  verificationConfidence?: number;
 }> {
   try {
     const res = await fetch(`/api/youtube/status/${videoId}`);
     if (!res.ok) {
-      return { isLive: false, status: 'RECORDED', title: '', author: '', available: false };
+      return { isLive: false, status: 'RECORDED', title: '', author: '', available: false, verifiedChristian: false, verificationConfidence: 0 };
     }
     const data = await res.json();
     return {
@@ -99,9 +102,12 @@ export async function checkYouTubeVideoStatus(videoId: string): Promise<{
       status: data.isLive ? 'LIVE' : 'RECORDED',
       title: data.title || '',
       author: data.author || '',
+      description: data.description || '',
       available: Boolean(data.success),
+      verifiedChristian: Boolean(data.verifiedChristian),
+      verificationConfidence: Number(data.verificationConfidence || 0),
     };
   } catch {
-    return { isLive: false, status: 'RECORDED', title: '', author: '', available: false };
+    return { isLive: false, status: 'RECORDED', title: '', author: '', available: false, verifiedChristian: false, verificationConfidence: 0 };
   }
 }

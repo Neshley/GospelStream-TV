@@ -6,7 +6,7 @@ export const CHANNELS: Channel[] = [
     number: 101,
     name: 'Gospel Broadcast Network',
     tagline: 'Living Hope & Apostolic Preaching 24/7',
-    badge: 'LIVE HD',
+    badge: 'CHANNEL',
     logoColor: 'from-amber-600 to-yellow-500',
     category: 'Sermons & Preaching',
     streamUrl: 'https://www.youtube-nocookie.com/embed/_ZvNDm9-Bak',
@@ -22,7 +22,7 @@ export const CHANNELS: Channel[] = [
       endMinutes: 600,
       durationMinutes: 60,
       description: 'A timeless gospel crusade message on finding true peace, purpose, and redemption in Christ Jesus.',
-      isLive: true,
+      isLive: false,
       category: 'Sermon',
     },
     upcomingPrograms: [
@@ -59,7 +59,7 @@ export const CHANNELS: Channel[] = [
     number: 102,
     name: 'Worship & Praise 24/7',
     tagline: 'Non-stop Anointed Worship from Around the World',
-    badge: 'LIVE 24/7',
+    badge: 'CHANNEL',
     logoColor: 'from-blue-600 to-cyan-500',
     category: 'Praise & Worship',
     streamUrl: 'https://www.youtube-nocookie.com/embed/ijSerobwWvI',
@@ -69,13 +69,13 @@ export const CHANNELS: Channel[] = [
       title: 'Praise & Worship Music ✝️ Live 24/7 Atmosphere',
       speaker: 'Spirit Sound Worship Collective',
       scriptureRef: 'Psalm 100:1-5',
-      startTimeFormatted: 'LIVE NOW',
-      endTimeFormatted: 'LIVE 24/7',
+      startTimeFormatted: 'Status unavailable',
+      endTimeFormatted: 'Check live feed',
       startMinutes: 0,
       endMinutes: 1440,
       durationMinutes: 1440,
       description: 'Nonstop live Christian praise, heartfelt acoustic worship, and uninterrupted adoration streaming 24 hours a day.',
-      isLive: true,
+      isLive: false,
       category: 'Worship',
     },
     upcomingPrograms: [
@@ -99,7 +99,7 @@ export const CHANNELS: Channel[] = [
     number: 103,
     name: 'Grace & Truth TV',
     tagline: 'Sound Theology, Expository Preaching & Scripture Study',
-    badge: 'LIVE 4K',
+    badge: 'CHANNEL',
     logoColor: 'from-emerald-600 to-teal-500',
     category: 'Theological Teaching',
     streamUrl: 'https://www.youtube-nocookie.com/embed/cFzsGeSFnqQ',
@@ -115,7 +115,7 @@ export const CHANNELS: Channel[] = [
       endMinutes: 615,
       durationMinutes: 60,
       description: 'Expository theological preaching on how our ultimate satisfaction in God magnifies His glory above all.',
-      isLive: true,
+      isLive: false,
       category: 'Sermon',
     },
     upcomingPrograms: [
@@ -139,7 +139,7 @@ export const CHANNELS: Channel[] = [
     number: 104,
     name: 'Revival Fire & Global Prayer',
     tagline: 'Awakening the Nations with Holy Spirit Ministry',
-    badge: 'LIVE PRAYER',
+    badge: 'CHANNEL',
     logoColor: 'from-red-600 to-orange-500',
     category: 'Revival & Miracles',
     streamUrl: 'https://www.youtube-nocookie.com/embed/0uaZ30NEHLU',
@@ -149,13 +149,13 @@ export const CHANNELS: Channel[] = [
       title: 'Global Prayer Room 24/7 Live Stream',
       speaker: 'International House of Prayer Intercessors',
       scriptureRef: 'Isaiah 62:6-7; 2 Chronicles 7:14',
-      startTimeFormatted: 'LIVE NOW',
-      endTimeFormatted: 'LIVE 24/7',
+      startTimeFormatted: 'Status unavailable',
+      endTimeFormatted: 'Check live feed',
       startMinutes: 0,
       endMinutes: 1440,
       durationMinutes: 1440,
       description: 'Perpetual live intercession, responsive worship, and scripture proclamation for global awakening and healing.',
-      isLive: true,
+      isLive: false,
       category: 'Revival',
     },
     upcomingPrograms: [
@@ -179,7 +179,7 @@ export const CHANNELS: Channel[] = [
     number: 105,
     name: 'Family Faith & Youth TV',
     tagline: 'Building Christ-Centered Homes & Anointed Praise',
-    badge: 'FAMILY SAFE',
+    badge: 'CHANNEL',
     logoColor: 'from-violet-600 to-purple-500',
     category: 'Family & Marriage',
     streamUrl: 'https://www.youtube-nocookie.com/embed/9sE5kEnitqE',
@@ -195,7 +195,7 @@ export const CHANNELS: Channel[] = [
       endMinutes: 600,
       durationMinutes: 75,
       description: 'Inspiring gospel singing celebrating the relentless faithfulness of God across all generations.',
-      isLive: true,
+      isLive: false,
       category: 'Family',
     },
     upcomingPrograms: [
@@ -219,7 +219,7 @@ export const CHANNELS: Channel[] = [
     number: 106,
     name: 'Holy Land Heritage & Bible Visuals',
     tagline: 'Visual Theology, Book Summaries & Scripture Overviews',
-    badge: 'VISUAL BIBLE',
+    badge: 'CHANNEL',
     logoColor: 'from-stone-600 to-amber-700',
     category: 'Documentaries',
     streamUrl: 'https://www.youtube-nocookie.com/embed/7_CGP-12AE0',
@@ -235,7 +235,7 @@ export const CHANNELS: Channel[] = [
       endMinutes: 630,
       durationMinutes: 90,
       description: 'The breathtaking unified narrative of the entire Bible showing how all Scripture leads to Jesus.',
-      isLive: true,
+      isLive: false,
       category: 'Documentary',
     },
     upcomingPrograms: [
@@ -269,13 +269,13 @@ export const CHANNELS: Channel[] = [
       title: 'Jireh | Continuous Gospel Praise & Worship',
       speaker: 'Elevation Worship & Maverick City',
       scriptureRef: 'Philippians 4:19',
-      startTimeFormatted: 'LIVE NOW',
-      endTimeFormatted: 'LIVE 24/7',
+      startTimeFormatted: 'Status unavailable',
+      endTimeFormatted: 'Check live feed',
       startMinutes: 0,
       endMinutes: 1440,
       durationMinutes: 1440,
       description: 'Anointed live Christian praise, spontaneous prayer, and gospel hymns streaming directly from verified online ministries.',
-      isLive: true,
+      isLive: false,
       category: 'Worship'
     },
     upcomingPrograms: [
@@ -298,6 +298,7 @@ export const CHANNELS: Channel[] = [
 
 export const SERMONS: Sermon[] = [
   {
+    isDemo: true,
     id: 'sermon-1',
     title: 'The Power of Peace in the Storm',
     preacher: 'Pastor David Vance',
@@ -341,6 +342,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-2',
     title: 'Grace That Greater Than All Our Sin',
     preacher: 'Rev. Sarah Jenkins',
@@ -383,6 +385,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-3',
     title: 'Secret Place: The Power of Hidden Prayer',
     preacher: 'Dr. Arthur Sterling',
@@ -420,6 +423,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-4',
     title: 'Walking in the Spirit: Overcoming Fleshly Desires',
     preacher: 'Pastor Marcus Cole',
@@ -456,6 +460,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-5',
     title: 'Building a Christ-Centered Home & Marriage',
     preacher: 'Pastor Michael & Linda Harris',
@@ -492,6 +497,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-6',
     title: 'The Prophetic Timeline: Daniel & Revelation Decoded',
     preacher: 'Dr. Samuel Mensah',
@@ -528,6 +534,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-7',
     title: 'Night of Holy Adoration: Live Praise Experience',
     preacher: 'Selah Worship Collective',
@@ -564,6 +571,7 @@ export const SERMONS: Sermon[] = [
     ],
   },
   {
+    isDemo: true,
     id: 'sermon-8',
     title: 'Archaeology Confirms the Gospel: Dead Sea to Jerusalem',
     preacher: 'Dr. Leah Hoffman',
@@ -600,9 +608,9 @@ export const SERMONS: Sermon[] = [
     ],
   },
 ];
-
 export const UPCOMING_EVENTS: LiveEvent[] = [
   {
+    isDemo: true,
     id: 'event-1',
     title: 'Sunday Worldwide Communion & Praise Service',
     speaker: 'Pastor David Vance & Global Guests',
@@ -618,6 +626,7 @@ export const UPCOMING_EVENTS: LiveEvent[] = [
     badgeText: 'COMMUNION SERVICE',
   },
   {
+    isDemo: true,
     id: 'event-2',
     title: 'Global Wednesday Night Revival & Miracle Prayer',
     speaker: 'Evangelist Isaac Thorne',
@@ -633,6 +642,7 @@ export const UPCOMING_EVENTS: LiveEvent[] = [
     badgeText: 'MIRACLE BROADCAST',
   },
   {
+    isDemo: true,
     id: 'event-3',
     title: 'All-Night Praise Vigil: The Songs of Zion',
     speaker: 'Selah Collective & Cathedral Worship Team',
@@ -648,6 +658,7 @@ export const UPCOMING_EVENTS: LiveEvent[] = [
     badgeText: 'NIGHT VIGIL',
   },
   {
+    isDemo: true,
     id: 'event-4',
     title: 'Equipping the Next Generation: Youth Live Summit',
     speaker: 'Pastor Josh Martinez & Young Disciples',
@@ -663,6 +674,7 @@ export const UPCOMING_EVENTS: LiveEvent[] = [
     badgeText: 'NEXT GEN SUMMIT',
   },
   {
+    isDemo: true,
     id: 'event-5',
     title: 'Live Q&A: Difficult Bible Passages Answered',
     speaker: 'Dr. Marcus Cole & Theological Panel',
@@ -678,11 +690,11 @@ export const UPCOMING_EVENTS: LiveEvent[] = [
     badgeText: 'THEOLOGY Q&A',
   },
 ];
-
 export const INITIAL_SYNC_STATE: SyncState = {
-  syncCode: '749-302',
+  syncCode: '',
+  syncToken: undefined,
   lastSynced: 'Just now',
-  deviceName: 'Living Room Smart TV (LG OLED)',
+  deviceName: 'This device',
   currentProfileId: 'prof-1',
   profiles: [
     { id: 'prof-1', name: 'Family', avatarColor: 'bg-blue-600', role: 'Primary' },
@@ -724,20 +736,7 @@ export const INITIAL_SYNC_STATE: SyncState = {
       createdAt: 'Sep 11, 2026',
     },
   ],
-  downloadedSermons: [
-    {
-      sermonId: 'sermon-1',
-      downloadedAt: 'Sep 11, 2026',
-      quality: '1080p',
-      sizeMb: 245,
-    },
-    {
-      sermonId: 'sermon-3',
-      downloadedAt: 'Sep 12, 2026',
-      quality: '720p',
-      sizeMb: 180,
-    },
-  ],
+  downloadedSermons: [],
   fontSize: 'large',
   closedCaptionsEnabled: true,
 };

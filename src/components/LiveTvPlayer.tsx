@@ -61,7 +61,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
   const [channelSurfNotice, setChannelSurfNotice] = useState<string | null>(null);
   const [videoSrc, setVideoSrc] = useState<string>(currentChannel.streamUrl);
   const [hasVideoError, setHasVideoError] = useState(false);
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Synchronize streamUrl when channel changes
   useEffect(() => {
@@ -111,12 +111,8 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
   // Handle video error with fallback stream and broadcast state
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     e.preventDefault();
-    // Fallback to high-availability CDN stream if current source fails
-    if (videoSrc !== 'https://media.w3.org/2010/05/video/movie_300.mp4') {
-      setVideoSrc('https://media.w3.org/2010/05/video/movie_300.mp4');
-    } else {
-      setHasVideoError(true);
-    }
+    setHasVideoError(true);
+    setIsPlaying(false);
   };
 
   const handleRetryStream = () => {
@@ -234,7 +230,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
 
             {currentChannel.currentProgram.scriptureRef && (
               <div className="rounded-xl bg-slate-900/80 border border-slate-800 px-4 py-2.5 text-xs sm:text-sm text-amber-200 mb-4 max-w-md backdrop-blur-md">
-                📖 <strong>{currentChannel.currentProgram.scriptureRef}:</strong> "The Lord is my strength and my song; he has given me victory."
+                📖 <strong>Scripture theme:</strong> {currentChannel.currentProgram.scriptureRef}
               </div>
             )}
 
@@ -306,7 +302,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
         <div className="flex items-center gap-1 rounded-lg bg-black/60 px-3 py-1 text-xs font-bold text-slate-200 backdrop-blur-md border border-white/10">
           <span className="text-amber-400 font-mono">CH {currentChannel.number}</span>
           <span className="text-slate-400 text-[10px]">|</span>
-          <span className="tracking-wide">{currentChannel.currentProgram.isLive ? 'LIVE 24/7' : 'RECORDED VOD'}</span>
+          <span className="tracking-wide">{currentChannel.currentProgram.isLive ? 'LIVE' : 'RECORDED VOD'}</span>
         </div>
       </div>
 
@@ -317,7 +313,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
           <div className="font-display text-2xl font-bold tracking-tight text-white">
             {channelSurfNotice}
           </div>
-          <p className="text-xs text-slate-400 mt-1 font-medium">Tuning to Christian Satellite Stream...</p>
+          <p className="text-xs text-slate-400 mt-1 font-medium">Connecting to the selected broadcast...</p>
         </div>
       )}
 
@@ -326,13 +322,9 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
         <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 max-w-2xl px-4 text-center pointer-events-none">
           <div className="inline-block rounded-xl bg-black/75 px-4 py-1.5 text-xs sm:text-sm font-medium text-amber-200 shadow-xl backdrop-blur-md border border-amber-400/20">
             {currentChannel.currentProgram.scriptureRef ? (
-              <span>
-                📖 <strong className="text-white">{currentChannel.currentProgram.scriptureRef}:</strong> "The Lord is my strength and my shield; my heart trusted in Him and I am helped."
-              </span>
+              <span>📖 <strong className="text-white">Scripture theme:</strong> {currentChannel.currentProgram.scriptureRef}</span>
             ) : (
-              <span>
-                🕊️ <em>"Grace, mercy, and peace from God the Father and Christ Jesus our Lord."</em>
-              </span>
+              <span>🕊️ Christian broadcast</span>
             )}
           </div>
         </div>

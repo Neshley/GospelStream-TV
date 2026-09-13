@@ -3,18 +3,12 @@ import {
   Tv, List, BookOpen, Bookmark, Bell, DownloadCloud, Cast, Flame,
   Check, ChevronDown, Youtube, MoreHorizontal
 } from 'lucide-react';
-import { AppTab, DeviceMode, SyncState } from '../types';
+import { AppTab, SyncState } from '../types';
 
 interface HeaderProps {
   currentTab: AppTab;
   onTabChange: (tab: AppTab) => void;
-  deviceMode: DeviceMode;
-  onDeviceModeChange: (mode: DeviceMode) => void;
-  isTvRemoteOpen: boolean;
-  onToggleTvRemote: () => void;
   onOpenSyncModal: () => void;
-  isOfflineMode: boolean;
-  onToggleOfflineMode: () => void;
   syncState: SyncState;
   onSelectProfile: (profileId: string) => void;
   unreadAlertsCount: number;
@@ -54,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <nav className="gs-main-nav" aria-label="Main navigation">
           {primary.map(tab => (
-            <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''}>
+            <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''} aria-current={currentTab === tab.id ? 'page' : undefined}>
               {tab.icon}<span>{tab.label}</span>
             </button>
           ))}
@@ -62,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="gs-actions">
           <div className="gs-more-wrap">
-            <button className={`gs-icon-btn ${moreOpen ? 'selected' : ''}`} onClick={() => setMoreOpen(v => !v)} aria-label="More GospelStream options" title="More">
+            <button className={`gs-icon-btn ${moreOpen ? 'selected' : ''}`} onClick={() => setMoreOpen(v => !v)} aria-label="More GospelStream options" aria-expanded={moreOpen} title="More">
               <MoreHorizontal size={19} />
             </button>
             {moreOpen && (
@@ -82,11 +76,11 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button id="btn-open-sync-modal" className="gs-sync-btn" onClick={onOpenSyncModal} title="Sync across your devices">
-            <Cast size={16}/><span>Sync</span>{syncState.syncCode && <small>{syncState.syncCode}</small>}
+            <Cast size={16}/><span>Sync</span>{syncState.syncToken && <small>Connected</small>}
           </button>
 
           <div className="gs-profile-wrap">
-            <button id="btn-profile-dropdown" className="gs-profile-btn" onClick={() => setProfileOpen(v => !v)} aria-expanded={profileOpen}>
+            <button id="btn-profile-dropdown" className="gs-profile-btn" onClick={() => setProfileOpen(v => !v)} aria-expanded={profileOpen} aria-haspopup="menu">
               <span className={`gs-avatar ${currentProfile?.avatarColor || 'bg-blue-600'}`}>{currentProfile?.name?.[0] || 'G'}</span>
               <span className="gs-profile-name">{currentProfile?.name || 'Family'}</span>
               <ChevronDown size={14}/>
@@ -109,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="gs-mobile-nav" aria-label="Mobile navigation">
         {primary.map(tab => (
-          <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''}>
+          <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''} aria-current={currentTab === tab.id ? 'page' : undefined}>
             {tab.icon}<span>{tab.label}</span>
           </button>
         ))}

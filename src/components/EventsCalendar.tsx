@@ -164,7 +164,7 @@ END:VCALENDAR`;
                 </span>
               </div>
 
-              <h3 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-white">
+              {events[0].isDemo && <span className="text-[9px] uppercase tracking-wider text-slate-500">Sample schedule</span>}<h3 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-white">
                 {events[0].title}
               </h3>
 

@@ -23,7 +23,7 @@ interface OfflineDownloadsProps {
   onToggleOfflineMode: () => void;
   onSelectSermon: (sermon: Sermon) => void;
   onDeleteDownload: (sermonId: string) => void;
-  onDownloadSermon: (sermonId: string, quality: '1080p' | '720p' | 'Audio Only', sizeMb: number) => void;
+  onDownloadSermon: (sermonId: string, quality: 'source', sizeMb: number) => Promise<void> | void;
   onNavigateToCatalog: () => void;
 }
 
@@ -46,7 +46,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
     .filter(Boolean) as {
       sermonId: string;
       downloadedAt: string;
-      quality: '1080p' | '720p' | 'Audio Only';
+      quality: 'source';
       sizeMb: number;
       sermon: Sermon;
     }[];
@@ -179,7 +179,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
                   {/* Offline Ready Badge */}
                   <div className="absolute top-2.5 left-2.5 rounded-lg bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow">
                     <CheckCircle2 className="h-3 w-3" />
-                    <span>Offline Cache: {quality}</span>
+                    <span>Offline cache • {quality}</span>
                   </div>
 
                   <div className="absolute bottom-2.5 right-2.5 rounded-lg bg-black/80 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-200">
@@ -273,7 +273,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
                   <span className="text-[10px] text-slate-500 text-right max-w-20">YouTube offline not available</span>
                 ) : (
                   <button
-                    onClick={() => onDownloadSermon(sermon.id, '1080p', sermon.downloadSizeMb)}
+                    onClick={() => onDownloadSermon(sermon.id, 'source', sermon.downloadSizeMb)}
                     className="rounded-lg bg-blue-600 hover:bg-blue-500 p-2 text-white transition"
                     title="Save direct media for offline playback"
                   >
