@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0b0f17;
+    color: #f1f5f9;
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .font-serif-brand {
+    font-family: 'Cinzel', serif;
+  }
+}
+
+/* TV Focus ring simulation */
+.tv-focusable {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), outline 0.18s ease;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.tv-focusable:focus-visible,
+.tv-focusable.tv-active-focus {
+  transform: scale(1.04);
+  outline: 3px solid #60a5fa;
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.35);
+  z-index: 20;
+}
+
+/* Custom horizontal scroll for TV shelves */
+.shelf-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.shelf-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.shelf-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+.shelf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

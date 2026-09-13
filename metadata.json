@@ -1,0 +1,6 @@
+{
+  "name": "GospelStream TV",
+  "description": "Smart TV & mobile streaming app for Christian programming, sermons, live electronic program guide, personalized library, offline playback, and cross-device sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
