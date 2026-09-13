@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "gospelstream-tv",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,10 +9,10 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "lucide-react": "^0.546.0",

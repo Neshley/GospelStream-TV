@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Sermon, 
   SyncState 
@@ -52,9 +52,12 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
     }[];
 
   const totalSizeMb = downloadedItems.reduce((acc, curr) => acc + curr.sizeMb, 0);
-  const totalStorageGb = 32;
+  const [quotaMb, setQuotaMb] = useState<number | null>(null);
+  useEffect(() => {
+    if (navigator.storage?.estimate) navigator.storage.estimate().then(({ quota }) => { if (quota) setQuotaMb(quota / 1024 / 1024); }).catch(() => {});
+  }, []);
   const usedStorageGb = (totalSizeMb / 1024).toFixed(2);
-  const percentUsed = Math.min(100, Math.round(((totalSizeMb / 1024) / totalStorageGb) * 100));
+  const percentUsed = quotaMb ? Math.min(100, Math.round((totalSizeMb / quotaMb) * 100)) : 0;
 
   return (
     <div id="offline-downloads-view" className="w-full space-y-8">
@@ -84,7 +87,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
               </div>
               <p className="text-xs text-slate-300 mt-1 max-w-xl">
                 {isOfflineMode
-                  ? 'Your app is disconnected from the internet. You can seamlessly play any sermon cached in your local downloads below without using cellular data or Wi-Fi.'
+                  ? 'Only media successfully cached on this device can be played without an internet connection.'
                   : 'Download Christian sermons and worship sessions for offline viewing during flights, road trips, or areas with poor internet connection.'}
               </p>
             </div>
@@ -99,7 +102,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
                 : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
             }`}
           >
-            {isOfflineMode ? 'Switch Back to Online' : 'Simulate Offline Mode'}
+            {isOfflineMode ? 'Switch Back to Online' : 'Use Offline Mode'}
           </button>
         </div>
 
@@ -108,7 +111,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
             <span className="flex items-center gap-1.5">
               <HardDrive className="h-3.5 w-3.5 text-blue-400" />
-              <span>Offline Media Usage: {totalSizeMb} MB ({usedStorageGb} GB) of {totalStorageGb} GB</span>
+              <span>Offline Media Usage: {totalSizeMb} MB ({usedStorageGb} GB){quotaMb ? ` of ${(quotaMb / 1024).toFixed(1)} GB browser quota` : ''}</span>
             </span>
             <span className="text-slate-300 font-bold">{downloadedItems.length} Sermons Cached</span>
           </div>
@@ -116,7 +119,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
           <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
             <div 
               className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-300"
-              style={{ width: `${Math.max(5, percentUsed)}%` }}
+              style={{ width: `${percentUsed}%` }}
             />
           </div>
         </div>
@@ -241,7 +244,7 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
           <span>Recommended for Weekend Offline Devotions</span>
         </h4>
         <p className="text-xs text-slate-400">
-          Popular messages chosen by thousands of believers for road trips and prayer retreats.
+          Direct media files that are compatible with this device can be saved for offline playback.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -266,11 +269,13 @@ export const OfflineDownloads: React.FC<OfflineDownloadsProps> = ({
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                     <CheckCircle2 className="h-4 w-4" />
                   </span>
+                ) : sermon.youtubeId ? (
+                  <span className="text-[10px] text-slate-500 text-right max-w-20">YouTube offline not available</span>
                 ) : (
                   <button
                     onClick={() => onDownloadSermon(sermon.id, '1080p', sermon.downloadSizeMb)}
                     className="rounded-lg bg-blue-600 hover:bg-blue-500 p-2 text-white transition"
-                    title={`Download (${sermon.downloadSizeMb} MB)`}
+                    title="Save direct media for offline playback"
                   >
                     <DownloadCloud className="h-4 w-4" />
                   </button>

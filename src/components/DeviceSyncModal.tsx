@@ -2,44 +2,28 @@ import React, { useState } from 'react';
 import { 
   SyncState 
 } from '../types';
-import { 
-  Cast, 
-  Tv, 
-  Smartphone, 
-  Tablet, 
-  Monitor, 
-  Check, 
-  Copy, 
-  RefreshCw, 
-  QrCode, 
-  X, 
-  Radio, 
-  Share2, 
-  ArrowRight,
-  ShieldCheck,
-  Flame
-} from 'lucide-react';
-import { generateDeviceSyncCode } from '../services/storageService';
+import { Cast, Check, Copy, RefreshCw, X, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface DeviceSyncModalProps {
   isOpen: boolean;
   onClose: () => void;
   syncState: SyncState;
-  onUpdateSyncState: (updater: (prev: SyncState) => SyncState) => void;
-  onHandoffToDevice: (deviceName: string) => void;
+  onPairDevice: (code: string) => Promise<void>;
+  onGenerateSyncCode: () => Promise<string>;
 }
 
 export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
   isOpen,
   onClose,
   syncState,
-  onUpdateSyncState,
-  onHandoffToDevice,
+  onPairDevice,
+  onGenerateSyncCode,
 }) => {
   const [inputCode, setInputCode] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [pairSuccessMessage, setPairSuccessMessage] = useState<string | null>(null);
-  const [handoffSuccessDevice, setHandoffSuccessDevice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -49,63 +33,31 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
     setTimeout(() => setCopySuccess(false), 2500);
   };
 
-  const handlePairDevice = (e: React.FormEvent) => {
+  const handlePairDevice = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = inputCode.trim().toUpperCase();
-    if (!cleanCode) return;
-
-    onUpdateSyncState((prev) => ({
-      ...prev,
-      syncCode: cleanCode,
-      lastSynced: 'Just now',
-    }));
-
-    setPairSuccessMessage(`Successfully connected with device code ${cleanCode}! All sermons, watch history, and library notes are now synchronized.`);
-    setInputCode('');
-    setTimeout(() => setPairSuccessMessage(null), 5000);
+    if (!/^\d{3}-\d{3}$/.test(cleanCode)) { setErrorMessage('Enter a code in 123-456 format.'); return; }
+    setBusy(true); setErrorMessage(null);
+    try {
+      await onPairDevice(cleanCode);
+      setPairSuccessMessage(`Paired with ${cleanCode}. Library, notes, reminders, and watch progress will sync through the server.`);
+      setInputCode('');
+      setTimeout(() => setPairSuccessMessage(null), 5000);
+    } catch (error: any) { setErrorMessage(error?.message || 'Could not pair this device.'); }
+    finally { setBusy(false); }
   };
 
-  const handleGenerateNewCode = () => {
-    const newCode = generateDeviceSyncCode();
-    onUpdateSyncState((prev) => ({
-      ...prev,
-      syncCode: newCode,
-      lastSynced: 'Just now',
-    }));
+  const handleGenerateNewCode = async () => {
+    setBusy(true); setErrorMessage(null);
+    try {
+      const newCode = await onGenerateSyncCode();
+      setPairSuccessMessage(`New cloud pairing code created: ${newCode}`);
+      setTimeout(() => setPairSuccessMessage(null), 4000);
+    } catch (error: any) { setErrorMessage(error?.message || 'Could not create a pairing code.'); }
+    finally { setBusy(false); }
   };
 
-  const handleHandoff = (devName: string) => {
-    onHandoffToDevice(devName);
-    setHandoffSuccessDevice(devName);
-    setTimeout(() => setHandoffSuccessDevice(null), 3000);
-  };
 
-  const registeredDevices = [
-    {
-      id: 'dev-1',
-      name: 'Living Room Smart TV (LG OLED)',
-      type: 'tv',
-      icon: <Tv className="h-5 w-5 text-blue-400" />,
-      status: 'Active Now',
-      isCurrent: syncState.deviceName.includes('Living Room'),
-    },
-    {
-      id: 'dev-2',
-      name: 'Family Tablet (iPad Air)',
-      type: 'tablet',
-      icon: <Tablet className="h-5 w-5 text-amber-400" />,
-      status: 'Synced 3 mins ago',
-      isCurrent: false,
-    },
-    {
-      id: 'dev-3',
-      name: 'Mobile Phone (iPhone 16 / Android)',
-      type: 'mobile',
-      icon: <Smartphone className="h-5 w-5 text-emerald-400" />,
-      status: 'Connected',
-      isCurrent: false,
-    },
-  ];
 
   return (
     <div 
@@ -148,12 +100,11 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
           </div>
         )}
 
-        {handoffSuccessDevice && (
-          <div className="rounded-2xl bg-blue-950/80 p-4 border border-blue-500/40 text-xs text-blue-200 flex items-center gap-3 animate-in fade-in">
-            <Cast className="h-5 w-5 text-blue-400 shrink-0" />
-            <span>Successfully handed off broadcast to <strong>{handoffSuccessDevice}</strong> with exact playback progress!</span>
-          </div>
+        {errorMessage && (
+          <div className="rounded-2xl bg-red-950/80 p-4 border border-red-500/40 text-xs text-red-200">{errorMessage}</div>
         )}
+
+
 
         {/* Device Sync Code Showcase */}
         <div className="rounded-3xl bg-gradient-to-br from-slate-950 to-blue-950/50 p-6 border border-slate-800 text-center space-y-4">
@@ -177,6 +128,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
 
             <button
               onClick={handleGenerateNewCode}
+              disabled={busy}
               className="rounded-xl bg-slate-800 hover:bg-slate-700 p-3 text-slate-400 hover:text-white transition"
               title="Generate New Sync Code"
             >
@@ -185,7 +137,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
           </div>
 
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Open GospelStream TV on your <strong>Smart TV, iPhone, iPad, or Android</strong> and enter this 6-digit code to link your accounts instantly.
+            Open GospelStream TV on another device and enter this pairing code. The server stores the shared library state for 30 days; do not share the code publicly.
           </p>
         </div>
 
@@ -205,7 +157,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
             />
             <button
               type="submit"
-              disabled={!inputCode.trim()}
+              disabled={!inputCode.trim() || busy}
               className="flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-3 text-xs font-bold text-white transition active:scale-95 shadow-md shadow-blue-600/30"
             >
               <span>Pair Device</span>
@@ -214,7 +166,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
           </form>
         </div>
 
-        {/* Connected Ecosystem Devices & Instant Handoff */}
+        {/* Paired-device status */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -226,46 +178,11 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {registeredDevices.map((dev) => (
-              <div
-                key={dev.id}
-                className="flex items-center justify-between rounded-2xl bg-slate-950/80 p-3.5 border border-slate-800 transition"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
-                    {dev.icon}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold text-white">
-                        {dev.name}
-                      </span>
-                      {dev.isCurrent && (
-                        <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">
-                          Current Device
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-slate-400">
-                      {dev.status}
-                    </span>
-                  </div>
-                </div>
-
-                {!dev.isCurrent && (
-                  <button
-                    onClick={() => handleHandoff(dev.name)}
-                    className="flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-blue-600/30 px-3 py-1.5 text-xs font-semibold text-blue-300 border border-slate-800 hover:border-blue-500/40 transition active:scale-95"
-                    title={`Send current video playback to ${dev.name}`}
-                  >
-                    <Cast className="h-3.5 w-3.5" />
-                    <span>Handoff to Screen</span>
-                  </button>
-                )}
-              </div>
-            ))}
+          <div className="rounded-2xl bg-slate-950/80 p-4 border border-slate-800 text-xs text-slate-300 space-y-2">
+            <p><strong>Current device:</strong> {syncState.deviceName}</p>
+            <p className="text-slate-500">Paired devices use the same code to read and write the shared state. Playback itself remains on the device because browser apps cannot remotely control an unrelated screen without a dedicated receiver.</p>
           </div>
+
         </div>
 
         {/* Sync Summary Checklist */}

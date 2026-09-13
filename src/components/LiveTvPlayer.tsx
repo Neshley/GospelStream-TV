@@ -206,7 +206,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
           className="h-full w-full object-cover"
         />
       ) : hasVideoError ? (
-        /* Seamless Spiritual Broadcast Studio Mode when network video stream is inaccessible */
+        /* Honest network-error state: never simulate live media when the stream is unavailable. */
         <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(59,130,246,0.15),transparent_70%)] pointer-events-none" />
           
@@ -217,7 +217,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
             {currentChannel.currentProgram.isLive ? (
               <span className="rounded-full bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white mb-2 flex items-center gap-1.5 animate-pulse">
                 <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-                Live Sanctuary Broadcast
+                Live stream unavailable
               </span>
             ) : (
               <span className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
@@ -238,7 +238,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
               </div>
             )}
 
-            {/* Simulated Live Audio Spectrum */}
+            {/* Network unavailable indicator */}
             <div className="flex gap-1.5 items-end h-8 mb-5">
               <span className="w-1.5 bg-blue-500 rounded-full animate-bounce h-4" />
               <span className="w-1.5 bg-blue-400 rounded-full animate-bounce h-7" />
@@ -267,7 +267,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
             Audio Stream Active
           </h2>
           <p className="text-sm text-slate-400 max-w-md">
-            Listening to live broadcast from {currentChannel.name}. Low data consumption for continuous devotion.
+            The selected broadcast could not be loaded. Check your connection and try again.
           </p>
           <div className="mt-4 flex gap-1 items-end h-8">
             <span className="w-1.5 bg-blue-500 rounded-full animate-bounce h-4" />

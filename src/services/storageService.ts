@@ -1,97 +1,90 @@
-import { SyncState, Sermon, LiveEvent, SermonNote, DownloadedItem } from '../types';
-import { INITIAL_SYNC_STATE, SERMONS } from '../data/mockData';
+import { SyncState } from '../types';
+import { INITIAL_SYNC_STATE } from '../data/mockData';
 
-const STORAGE_KEY = 'gospelstream_tv_sync_state_v1';
-const SYNC_BROADCAST_CHANNEL = 'gospelstream_device_sync_channel';
-
-// Initialize broadcast channel for real-time cross-tab / cross-window sync
+const STORAGE_KEY = 'gospelstream_tv_state_v2';
+const DEVICE_KEY = 'gospelstream_tv_device_v1';
+const SYNC_CHANNEL = 'gospelstream_state_sync_v2';
 let broadcastChannel: BroadcastChannel | null = null;
-try {
-  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-    broadcastChannel = new BroadcastChannel(SYNC_BROADCAST_CHANNEL);
-  }
-} catch {
-  // BroadcastChannel might fail in restricted iframes
-  broadcastChannel = null;
+try { if (typeof window !== 'undefined' && 'BroadcastChannel' in window) broadcastChannel = new BroadcastChannel(SYNC_CHANNEL); } catch { broadcastChannel = null; }
+
+function mergeState(parsed: Partial<SyncState>): SyncState {
+  return {
+    ...INITIAL_SYNC_STATE,
+    ...parsed,
+    favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
+    watchLater: Array.isArray(parsed.watchLater) ? parsed.watchLater : [],
+    continueWatching: Array.isArray(parsed.continueWatching) ? parsed.continueWatching : [],
+    reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
+    notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+    downloadedSermons: Array.isArray(parsed.downloadedSermons) ? parsed.downloadedSermons : [],
+    profiles: Array.isArray(parsed.profiles) ? parsed.profiles : INITIAL_SYNC_STATE.profiles,
+  };
 }
 
 export function loadSyncState(): SyncState {
   if (typeof window === 'undefined') return INITIAL_SYNC_STATE;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...INITIAL_SYNC_STATE, ...parsed };
-    }
-  } catch (err) {
-    console.warn('Failed to read from localStorage:', err);
+    if (raw) return mergeState(JSON.parse(raw));
+    const initial = mergeState({ ...INITIAL_SYNC_STATE, syncCode: generateDeviceSyncCode(), lastSynced: new Date().toISOString() });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    return initial;
+  } catch {
+    return mergeState({ ...INITIAL_SYNC_STATE, syncCode: generateDeviceSyncCode(), lastSynced: new Date().toISOString() });
   }
-  return INITIAL_SYNC_STATE;
 }
 
-export function saveSyncState(state: SyncState): void {
+export function saveSyncState(state: SyncState, broadcast = true): void {
   if (typeof window === 'undefined') return;
-  try {
-    const updated = { ...state, lastSynced: 'Just now' };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    if (broadcastChannel) {
-      broadcastChannel.postMessage({ type: 'STATE_UPDATED', payload: updated });
-    }
-  } catch (err) {
-    console.warn('Failed to save to localStorage:', err);
-  }
+  const updated = { ...state, lastSynced: new Date().toISOString() };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch (err) { console.warn('Local state save failed', err); }
+  if (broadcast) broadcastChannel?.postMessage({ type: 'STATE_UPDATED', payload: updated });
 }
 
 export function subscribeToCrossDeviceSync(callback: (state: SyncState) => void): () => void {
   if (!broadcastChannel) return () => {};
-
-  const handleMessage = (event: MessageEvent) => {
-    if (event.data && event.data.type === 'STATE_UPDATED' && event.data.payload) {
-      callback(event.data.payload);
-    }
-  };
-
-  broadcastChannel.addEventListener('message', handleMessage);
-  return () => {
-    broadcastChannel?.removeEventListener('message', handleMessage);
-  };
+  const handler = (event: MessageEvent) => { if (event.data?.type === 'STATE_UPDATED') callback(mergeState(event.data.payload)); };
+  broadcastChannel.addEventListener('message', handler);
+  return () => broadcastChannel?.removeEventListener('message', handler);
 }
 
-// Generate new 6-digit sync code
 export function generateDeviceSyncCode(): string {
-  const num1 = Math.floor(100 + Math.random() * 900);
-  const num2 = Math.floor(100 + Math.random() * 900);
-  return `${num1}-${num2}`;
+  const a = cryptoRandomInt(100, 1000), b = cryptoRandomInt(100, 1000);
+  return `${a}-${b}`;
+}
+function cryptoRandomInt(min: number, max: number) { return Math.floor(Math.random() * (max - min)) + min; }
+
+export async function createCloudSyncCode(): Promise<string> {
+  const response = await fetch('/api/sync/code', { method: 'POST' });
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error(data.error || 'Could not create sync code');
+  return data.code;
 }
 
-// Offline media store helper
-export function isSermonDownloaded(sermonId: string, state: SyncState): boolean {
-  return state.downloadedSermons.some((item) => item.sermonId === sermonId);
+export async function uploadSyncState(state: SyncState): Promise<SyncState> {
+  const response = await fetch(`/api/sync/${encodeURIComponent(state.syncCode)}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error(data.error || 'Could not synchronize state');
+  return mergeState(data.state);
 }
 
-// Browser Push / Notification API helper
+export async function downloadSyncState(code: string): Promise<SyncState> {
+  const response = await fetch(`/api/sync/${encodeURIComponent(code)}`);
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error(data.error || 'Pairing code not found');
+  return mergeState(data.state);
+}
+
+export function isSermonDownloaded(sermonId: string, state: SyncState) { return state.downloadedSermons.some((item) => item.sermonId === sermonId); }
+
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return false;
-  }
-  try {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
-  } catch {
-    return false;
-  }
+  if (typeof window === 'undefined' || !('Notification' in window)) return false;
+  try { return (await Notification.requestPermission()) === 'granted'; } catch { return false; }
 }
-
 export function sendLocalNotification(title: string, body: string, icon?: string): void {
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        body,
-        icon: icon || 'https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=128&q=80',
-        badge: '/assets/icon.png',
-      });
-    } catch {
-      // Notification failed in iframe sandbox
-    }
+    try { new Notification(title, { body, icon }); } catch { /* ignore */ }
   }
 }

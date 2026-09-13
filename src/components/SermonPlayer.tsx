@@ -33,6 +33,7 @@ import {
   Film
 } from 'lucide-react';
 import { extractYouTubeId, getYouTubeEmbedUrl } from '../utils/christianFilter';
+import { getCachedMediaUrl } from '../services/offlineService';
 
 interface SermonPlayerProps {
   sermon: Sermon;
@@ -82,10 +83,11 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
   const isYouTubeVideo = Boolean(youtubeVideoId);
 
   useEffect(() => {
-    setVideoSrc(sermon.videoUrl);
-    setHasVideoError(false);
-    setIsPlaying(true);
-  }, [sermon.id, sermon.videoUrl]);
+    let active = true;
+    setVideoSrc(sermon.videoUrl); setHasVideoError(false); setIsPlaying(true);
+    if (isOfflineMode && !youtubeVideoId) getCachedMediaUrl(sermon.id).then((url) => { if (active && url) setVideoSrc(url); });
+    return () => { active = false; };
+  }, [sermon.id, sermon.videoUrl, isOfflineMode, youtubeVideoId]);
 
   // Check if there was previous continue-watching progress
   useEffect(() => {
@@ -130,13 +132,8 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
     setIsMuted(!isMuted);
   };
 
-  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    e.preventDefault();
-    if (videoSrc !== 'https://media.w3.org/2010/05/video/movie_300.mp4') {
-      setVideoSrc('https://media.w3.org/2010/05/video/movie_300.mp4');
-    } else {
-      setHasVideoError(true);
-    }
+  const handleVideoError = () => {
+    setHasVideoError(true);
   };
 
   const handleRetryStream = () => {
@@ -175,22 +172,13 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
     setNewNoteText('');
   };
 
-  // Simulate download for offline playback
   const startDownload = (quality: '1080p' | '720p' | 'Audio Only') => {
-    if (isDownloaded) return;
-    setIsDownloading(true);
-    setDownloadProgress(10);
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsDownloading(false);
-          onDownloadSermon(sermon.id, quality, sermon.downloadSizeMb);
-          return 100;
-        }
-        return prev + 20;
-      });
-    }, 300);
+    if (isDownloaded || isYouTubeVideo || isDownloading) return;
+    setIsDownloading(true); setDownloadProgress(0);
+    // The parent performs the real IndexedDB download. This component only reports UI progress.
+    onDownloadSermon(sermon.id, quality, sermon.downloadSizeMb);
+    setDownloadProgress(100);
+    setIsDownloading(false);
   };
 
   const formatSeconds = (sec: number) => {
@@ -413,9 +401,13 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                 </div>
               </div>
 
-              {/* Download for Offline Button */}
+              {/* Offline media: browser-cache only for direct media sources */}
               <div className="flex items-center gap-2">
-                {isDownloaded ? (
+                {isYouTubeVideo ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 text-xs text-slate-400 border border-slate-700">
+                    Offline download unavailable for YouTube videos
+                  </span>
+                ) : isDownloaded ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 border border-emerald-500/30">
                     <Check className="h-4 w-4" />
                     <span>Downloaded ({sermon.downloadSizeMb} MB)</span>
@@ -429,10 +421,10 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                   <button
                     onClick={() => startDownload('1080p')}
                     className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 px-3 py-1.5 text-xs font-semibold text-slate-200 border border-slate-700 transition"
-                    title="Download to device for offline playback"
+                    title="Save this direct media file to this device"
                   >
                     <DownloadCloud className="h-4 w-4 text-blue-400" />
-                    <span>Download Offline ({sermon.downloadSizeMb} MB)</span>
+                    <span>Save Offline</span>
                   </button>
                 )}
               </div>

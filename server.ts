@@ -1,478 +1,320 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs/promises';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { verifyChristianContent, checkSearchRelevance } from './src/utils/christianFilter';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+const CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_QUERY_LENGTH = 120;
+const MAX_BODY_BYTES = 256 * 1024;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY?.trim();
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+app.use(express.json({ limit: MAX_BODY_BYTES }));
 
-// In-memory cache to make repeated queries fast while keeping data fresh
-const searchCache = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes cache
+const cache = new Map<string, { timestamp: number; data: unknown }>();
+const requestBuckets = new Map<string, { started: number; count: number }>();
+const syncFile = path.join(process.cwd(), 'data', 'sync-state.json');
+type StoredSync = { state: unknown; updatedAt: number; expiresAt: number };
+let syncStore: Record<string, StoredSync> = {};
+let syncLoaded = false;
 
-// Helper function to search YouTube and accurately detect whether each video is LIVE or RECORDED
-async function fetchYouTubeChristianVideos(query: string, liveOnly: boolean = false) {
-  const cacheKey = `${query}_${liveOnly}`;
-  const cached = searchCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data;
-  }
-
-  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}${
-    liveOnly ? '&sp=CAMSAkAB' : ''
-  }`;
-
+async function loadSyncStore() {
+  if (syncLoaded) return;
+  syncLoaded = true;
   try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
-
-    const html = await res.text();
-    const match = html.match(/var ytInitialData = ({.+?});<\/script>/);
-    if (!match) {
-      return [];
-    }
-
-    const data = JSON.parse(match[1]);
-    const contents =
-      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
-        ?.contents;
-    const items: any[] = [];
-
-    if (contents) {
-      for (const section of contents) {
-        const itemSection = section?.itemSectionRenderer?.contents;
-        if (itemSection) {
-          for (const item of itemSection) {
-            const vr = item.videoRenderer;
-            if (vr && vr.videoId) {
-              const videoId = vr.videoId;
-              const title =
-                vr.title?.runs?.map((r: any) => r.text).join('') ||
-                vr.title?.simpleText ||
-                '';
-              const channel = vr.ownerText?.runs?.[0]?.text || '';
-              const badges: string[] =
-                vr.badges?.map((b: any) => b.metadataBadgeRenderer?.label?.toUpperCase()) ||
-                [];
-
-              // Precise Live Detection
-              const hasLiveBadge = badges.includes('LIVE');
-              const viewCountText =
-                vr.viewCountText?.simpleText ||
-                vr.viewCountText?.runs?.map((r: any) => r.text).join('') ||
-                '';
-              const isWatchingLive = viewCountText.toLowerCase().includes('watching');
-              const overlayStyle = vr.thumbnailOverlays?.some(
-                (o: any) => o.thumbnailOverlayTimeStatusRenderer?.style === 'LIVE'
-              );
-
-              const isLive = Boolean(hasLiveBadge || isWatchingLive || overlayStyle);
-              const durationFormatted =
-                vr.lengthText?.simpleText || (isLive ? 'LIVE' : 'Recorded');
-              const publishedTime = vr.publishedTimeText?.simpleText || '';
-              const description =
-                vr.detailedMetadataSnippets?.[0]?.snippetText?.runs
-                  ?.map((r: any) => r.text)
-                  .join('') ||
-                `Christian broadcast from ${channel}.`;
-
-              // Infer category
-              let category = 'Sunday Sermons';
-              const lowerTitle = title.toLowerCase();
-              if (
-                lowerTitle.includes('worship') ||
-                lowerTitle.includes('praise') ||
-                lowerTitle.includes('hymn') ||
-                lowerTitle.includes('piano')
-              ) {
-                category = 'Worship Nights';
-              } else if (
-                lowerTitle.includes('prayer') ||
-                lowerTitle.includes('fasting') ||
-                lowerTitle.includes('intercession')
-              ) {
-                category = 'Prayer & Fasting';
-              } else if (
-                lowerTitle.includes('bible') ||
-                lowerTitle.includes('study') ||
-                lowerTitle.includes('verse') ||
-                lowerTitle.includes('testament')
-              ) {
-                category = 'Deep Bible Study';
-              } else if (
-                lowerTitle.includes('heal') ||
-                lowerTitle.includes('faith') ||
-                lowerTitle.includes('miracle')
-              ) {
-                category = 'Faith & Healing';
-              } else if (
-                lowerTitle.includes('spirit') ||
-                lowerTitle.includes('holy') ||
-                lowerTitle.includes('revival')
-              ) {
-                category = 'Walking in the Spirit';
-              }
-
-              // Extract or generate scripture reference
-              let scripture = 'Psalm 100:1-5';
-              const scriptureMatch = title.match(
-                /\b(Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|1 Samuel|2 Samuel|1 Kings|2 Kings|Psalms?|Proverbs|Ecclesiastes|Isaiah|Jeremiah|Daniel|Matthew|Mark|Luke|John|Acts|Romans|1 Corinthians|2 Corinthians|Galatians|Ephesians|Philippians|Colossians|1 Thessalonians|2 Thessalonians|1 Timothy|2 Timothy|Hebrews|James|1 Peter|2 Peter|1 John|Revelation)\s+\d+(:[\d-]+)?/i
-              );
-              if (scriptureMatch) {
-                scripture = scriptureMatch[0];
-              } else if (category === 'Worship Nights') {
-                scripture = 'Psalm 150:1-6';
-              } else if (category === 'Prayer & Fasting') {
-                scripture = '1 Thessalonians 5:17';
-              } else if (category === 'Deep Bible Study') {
-                scripture = '2 Timothy 3:16-17';
-              } else if (category === 'Faith & Healing') {
-                scripture = 'Hebrews 11:1';
-              }
-
-              // Duration in seconds estimate
-              let durationSeconds = 0;
-              if (!isLive && durationFormatted) {
-                const parts = durationFormatted.split(':').map((p: string) => parseInt(p, 10));
-                if (parts.length === 2) {
-                  durationSeconds = (parts[0] || 0) * 60 + (parts[1] || 0);
-                } else if (parts.length === 3) {
-                  durationSeconds =
-                    (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-                }
-              }
-
-              items.push({
-                id: `yt-${videoId}`,
-                youtubeId: videoId,
-                title,
-                preacher: channel,
-                ministry: channel,
-                scripture,
-                scriptureText:
-                  'For where two or three gather in my name, there am I with them. — Matthew 18:20',
-                duration: durationSeconds,
-                durationFormatted: isLive ? 'LIVE' : durationFormatted,
-                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-                videoUrl: `https://www.youtube-nocookie.com/embed/${videoId}`,
-                isOnlineVideo: true,
-                sourceType: isLive ? 'livestream' : 'youtube',
-                isLive: isLive, // TRUE if genuinely live on YouTube, FALSE if recorded/uploaded
-                verifiedChristian: true,
-                category,
-                series: isLive ? 'Live YouTube Broadcast' : 'Recorded Ministry Teaching',
-                date: isLive ? 'Streaming LIVE on YouTube' : publishedTime || 'Uploaded to YouTube',
-                description,
-                chapters: [{ title: 'Full Broadcast', time: 0 }],
-                biblePassages: [
-                  {
-                    reference: scripture,
-                    translation: 'NIV',
-                    text: 'The grass withers and the flowers fall, but the word of our God endures forever.',
-                  },
-                ],
-                keyPoints: [
-                  isLive
-                    ? 'Active live broadcast on YouTube.'
-                    : 'Recorded and uploaded video message available on demand.',
-                  '100% verified under Christian Content Guardian.',
-                ],
-                downloadSizeMb: isLive ? 0 : 80,
-                tags: [
-                  isLive ? 'Live Stream' : 'Recorded',
-                  'YouTube',
-                  channel,
-                  category,
-                ],
-                viewsCount: isLive
-                  ? `${viewCountText || 'Live broadcast'}`
-                  : `${viewCountText || 'YouTube views'}`,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    searchCache.set(cacheKey, { timestamp: Date.now(), data: items });
-    return items;
-  } catch (err) {
-    console.error('Error fetching YouTube results:', err);
-    return [];
+    syncStore = JSON.parse(await fs.readFile(syncFile, 'utf8'));
+  } catch {
+    syncStore = {};
   }
 }
 
-// API: Search & Feed Christian Videos Live from YouTube
-app.get('/api/youtube/christian', async (req, res) => {
-  try {
-    const q = (req.query.q as string) || 'Christian worship sermon live';
-    const liveOnly = req.query.liveOnly === 'true';
-    const filter = (req.query.filter as string) || 'all'; // 'all' | 'live' | 'recorded'
-    const category = (req.query.category as string) || 'All';
-
-    // Enrich query with Christian context if needed
-    let searchQuery = q;
-    if (
-      !searchQuery.toLowerCase().includes('christian') &&
-      !searchQuery.toLowerCase().includes('worship') &&
-      !searchQuery.toLowerCase().includes('bible') &&
-      !searchQuery.toLowerCase().includes('sermon') &&
-      !searchQuery.toLowerCase().includes('jesus') &&
-      !searchQuery.toLowerCase().includes('god')
-    ) {
-      searchQuery = `Christian ${searchQuery}`;
-    }
-
-    // If filter is live or liveOnly is requested, search with YouTube live filter
-    const shouldFetchLiveOnly = liveOnly || filter === 'live';
-    let videos = await fetchYouTubeChristianVideos(searchQuery, shouldFetchLiveOnly);
-
-    // If not liveOnly and user asked for 'all', also mix in live streams if none were returned
-    if (filter === 'all' && !liveOnly) {
-      const hasLiveInResults = videos.some((v: any) => v.isLive);
-      if (!hasLiveInResults) {
-        // Fetch top live Christian streams and merge
-        const liveVideos = await fetchYouTubeChristianVideos('Christian worship praise live', true);
-        videos = [...liveVideos.slice(0, 4), ...videos];
-      }
-    }
-
-    // Apply client filter: 'live' or 'recorded'
-    if (filter === 'live') {
-      videos = videos.filter((v: any) => v.isLive);
-    } else if (filter === 'recorded') {
-      videos = videos.filter((v: any) => !v.isLive);
-    }
-
-    // Apply category filter if specified and not 'All'
-    if (category && category !== 'All' && category !== 'Online YouTube') {
-      videos = videos.filter((v: any) => v.category === category);
-    }
-
-    res.json({
-      success: true,
-      query: searchQuery,
-      filter,
-      total: videos.length,
-      liveCount: videos.filter((v: any) => v.isLive).length,
-      recordedCount: videos.filter((v: any) => !v.isLive).length,
-      videos,
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+async function persistSyncStore() {
+  await fs.mkdir(path.dirname(syncFile), { recursive: true });
+  const now = Date.now();
+  for (const [code, entry] of Object.entries(syncStore)) {
+    if (entry.expiresAt <= now) delete syncStore[code];
   }
-});
+  await fs.writeFile(syncFile, JSON.stringify(syncStore), 'utf8');
+}
 
-// API: Dynamic Christian Live TV Channels from YouTube
-app.get('/api/youtube/channels', async (req, res) => {
-  try {
-    // Query live Christian streams for real live television channels
-    const liveStreams = await fetchYouTubeChristianVideos('Christian worship live stream 24/7', true);
-    const prayerStreams = await fetchYouTubeChristianVideos('Christian prayer room live stream 24/7', true);
-    const recordedTeachings = await fetchYouTubeChristianVideos('Billy Graham John Piper sermon full', false);
-    const audioBibleStreams = await fetchYouTubeChristianVideos('Audio Bible live stream 24/7', true);
-
-    const channelConfigs = [
-      {
-        number: 101,
-        name: 'Gospel Praise & Worship Live',
-        tagline: '24/7 Continuous Nonstop Praise & Worship Streams',
-        badge: 'LIVE 24/7',
-        logoColor: 'from-blue-600 to-cyan-500',
-        category: 'Praise & Worship',
-        video: liveStreams[0] || {
-          youtubeId: 'ijSerobwWvI',
-          title: 'Praise & Worship Music ✝️ Live 24/7 Nonstop Worship',
-          channel: 'Spirit Sound Worship',
-          isLive: true,
-        },
-      },
-      {
-        number: 102,
-        name: 'Global Watchmen Prayer Room',
-        tagline: 'Worldwide Intercession & Spontaneous Adoration',
-        badge: 'LIVE PRAYER',
-        logoColor: 'from-red-600 to-amber-500',
-        category: 'Prayer & Intercession',
-        video: prayerStreams[0] || {
-          youtubeId: '0uaZ30NEHLU',
-          title: 'The Global Prayer Room | 24/7 Livestream of Intercession',
-          channel: 'International House of Prayer',
-          isLive: true,
-        },
-      },
-      {
-        number: 103,
-        name: 'Audio Bible Broadcast 24/7',
-        tagline: 'Continuous Living Word of God Narration & Scriptures',
-        badge: 'LIVE SCRIPTURE',
-        logoColor: 'from-emerald-600 to-teal-500',
-        category: 'Audio Bible',
-        video: audioBibleStreams[0] || {
-          youtubeId: 'oNTzXQczFW0',
-          title: '24/7 Audio Bible Livestream | Continuous Word of God',
-          channel: 'Bible Hub',
-          isLive: true,
-        },
-      },
-      {
-        number: 104,
-        name: 'Grace & Truth Expository Network',
-        tagline: 'Sound Biblical Exegesis & Doctrinal Preaching',
-        badge: 'RECORDED VOD',
-        logoColor: 'from-purple-600 to-indigo-500',
-        category: 'Expository Preaching',
-        video: recordedTeachings.find((v: any) => !v.isLive) || {
-          youtubeId: 'cFzsGeSFnqQ',
-          title: 'Desiring God: The Supremacy of Christ',
-          channel: 'Dr. John Piper (Desiring God)',
-          isLive: false,
-          duration: '55:00',
-        },
-      },
-      {
-        number: 105,
-        name: 'Classic Crusade Evangelism',
-        tagline: 'Timeless Historic Crusades & Global Altar Calls',
-        badge: 'RECORDED VOD',
-        logoColor: 'from-amber-600 to-yellow-500',
-        category: 'Crusade & Evangelism',
-        video: recordedTeachings[1] || {
-          youtubeId: '_ZvNDm9-Bak',
-          title: 'Life’s Search for Meaning & Hope',
-          channel: 'Billy Graham Evangelistic Association',
-          isLive: false,
-          duration: '29:00',
-        },
-      },
-      {
-        number: 106,
-        name: 'Acoustic Devotional Piano',
-        tagline: 'Scripture-Filled Instrumental Hymns for Prayer & Quiet Time',
-        badge: 'LIVE 24/7',
-        logoColor: 'from-indigo-600 to-sky-500',
-        category: 'Instrumental Worship',
-        video: liveStreams[1] || {
-          youtubeId: '_3nkq4baOkY',
-          title: '24/7 Piano Worship with Scriptures: Quiet Time With God',
-          channel: 'DappyTKeys Piano Worship',
-          isLive: true,
-        },
-      },
-    ];
-
-    const channels = channelConfigs.map((cfg) => {
-      const vid = cfg.video;
-      const isLive = Boolean(vid.isLive);
-      return {
-        id: `ch-${cfg.number}`,
-        number: cfg.number,
-        name: cfg.name,
-        tagline: cfg.tagline,
-        badge: isLive ? 'LIVE' : 'RECORDED',
-        logoColor: cfg.logoColor,
-        category: cfg.category,
-        streamUrl: `https://www.youtube-nocookie.com/embed/${vid.youtubeId}`,
-        youtubeId: vid.youtubeId,
-        currentProgram: {
-          id: `prg-${cfg.number}-current`,
-          title: vid.title,
-          speaker: vid.channel || vid.preacher || 'Christian Ministry',
-          scriptureRef: vid.scripture || 'Psalm 100:1-5',
-          startTimeFormatted: isLive ? 'LIVE NOW' : 'ON DEMAND',
-          endTimeFormatted: isLive ? 'CONTINUOUS' : vid.durationFormatted || 'RECORDED',
-          startMinutes: 0,
-          endMinutes: 1440,
-          durationMinutes: isLive ? 1440 : 60,
-          description: vid.description || `Christian broadcast from ${vid.channel || cfg.name}.`,
-          isLive: isLive, // TRUE if live on YouTube, FALSE if recorded
-          category: cfg.category,
-        },
-        upcomingPrograms: [
-          {
-            id: `prg-${cfg.number}-next`,
-            title: isLive ? 'Continuous Holy Spirit Atmosphere' : 'Next Expository Message',
-            speaker: vid.channel || 'Ministry Broadcast Team',
-            startTimeFormatted: isLive ? 'NEXT' : '+1 Hour',
-            endTimeFormatted: isLive ? 'ONWARDS' : '+2 Hours',
-            startMinutes: 60,
-            endMinutes: 120,
-            durationMinutes: 60,
-            description: 'Unbroken Christian teaching and spiritual encouragement.',
-            isLive: isLive,
-            category: cfg.category,
-          },
-        ],
-      };
-    });
-
-    res.json({ success: true, channels });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+function rateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const key = req.ip || 'unknown';
+  const now = Date.now();
+  const bucket = requestBuckets.get(key);
+  if (!bucket || now - bucket.started >= 60_000) {
+    requestBuckets.set(key, { started: now, count: 1 });
+    return next();
   }
-});
+  bucket.count += 1;
+  if (bucket.count > 60) return res.status(429).json({ success: false, error: 'Too many requests. Try again shortly.' });
+  next();
+}
+app.use('/api', rateLimit);
 
-// API: Check exact live status of any YouTube video ID
-app.get('/api/youtube/status/:videoId', async (req, res) => {
+function cleanQuery(value: unknown, fallback: string) {
+  const q = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  return (q || fallback).slice(0, MAX_QUERY_LENGTH);
+}
+
+function cacheGet<T>(key: string): T | undefined {
+  const item = cache.get(key);
+  if (!item || Date.now() - item.timestamp > CACHE_TTL_MS) return undefined;
+  return item.data as T;
+}
+function cacheSet(key: string, data: unknown) {
+  if (cache.size >= 100) cache.delete(cache.keys().next().value as string);
+  cache.set(key, { timestamp: Date.now(), data });
+}
+
+function parseDuration(text: string) {
+  const parts = text.split(':').map(Number);
+  if (parts.some(Number.isNaN)) return 0;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
+function categoryFor(title: string) {
+  const t = title.toLowerCase();
+  if (/worship|praise|hymn/.test(t)) return 'Worship Nights';
+  if (/prayer|fasting|intercession/.test(t)) return 'Prayer & Fasting';
+  if (/bible|study|scripture|verse|testament/.test(t)) return 'Deep Bible Study';
+  if (/heal|faith|miracle/.test(t)) return 'Faith & Healing';
+  if (/spirit|holy|revival/.test(t)) return 'Walking in the Spirit';
+  return 'Sunday Sermons';
+}
+
+function parseYoutubeError(data: any) {
+  return data?.error?.message || 'YouTube API request failed';
+}
+
+async function youtubeApi(endpoint: string, params: Record<string, string>) {
+  if (!YOUTUBE_API_KEY) throw new Error('YOUTUBE_API_KEY is not configured');
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`);
+  Object.entries({ ...params, key: YOUTUBE_API_KEY }).forEach(([k, v]) => url.searchParams.set(k, v));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
   try {
-    const { videoId } = req.params;
-    const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const ytRes = await fetch(watchUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
+    const response = await fetch(url, { signal: controller.signal });
+    const data = await response.json();
+    if (!response.ok) throw new Error(parseYoutubeError(data));
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-    const html = await ytRes.text();
-    const isLive =
-      html.includes('"liveBroadcastDetails":{"isLiveNow":true') ||
-      (html.includes('"isLive":true') && !html.includes('"isLive":false'));
+async function searchYouTube(query: string, liveOnly: boolean) {
+  const cacheKey = `yt:${query}:${liveOnly}`;
+  const cached = cacheGet<any[]>(cacheKey);
+  if (cached) return cached;
+  if (!YOUTUBE_API_KEY) return [];
 
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    const title = titleMatch ? titleMatch[1].replace(' - YouTube', '') : '';
-
-    const authorMatch = html.match(/"ownerChannelName":"([^"]+)"/);
-    const author = authorMatch ? authorMatch[1] : '';
-
-    res.json({
-      success: true,
-      videoId,
-      isLive,
-      status: isLive ? 'LIVE' : 'RECORDED',
+  const search = await youtubeApi('search', {
+    part: 'snippet', type: 'video', maxResults: '20', q: query,
+    ...(liveOnly ? { eventType: 'live' } : {}),
+  });
+  const ids = (search.items || []).map((x: any) => x.id?.videoId).filter(Boolean).join(',');
+  if (!ids) return [];
+  const details = await youtubeApi('videos', { part: 'snippet,contentDetails,liveStreamingDetails', id: ids });
+  const items = (details.items || []).map((v: any) => {
+    const title = String(v.snippet?.title || '').trim();
+    const description = String(v.snippet?.description || '').trim();
+    const channel = String(v.snippet?.channelTitle || '').trim();
+    const verification = verifyChristianContent(title, description, channel);
+    const live = Boolean(v.snippet?.liveBroadcastContent === 'live' || v.liveStreamingDetails?.actualStartTime && !v.liveStreamingDetails?.actualEndTime);
+    if (!verification.isChristian || verification.confidence < 75) return null;
+    const durationFormatted = live ? 'LIVE' : formatIsoDuration(v.contentDetails?.duration);
+    const scriptureMatch = `${title} ${description}`.match(/\b(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|1 Samuel|2 Samuel|1 Kings|2 Kings|Psalms?|Proverbs|Ecclesiastes|Isaiah|Jeremiah|Daniel|Matthew|Mark|Luke|John|Acts|Romans|1 Corinthians|2 Corinthians|Galatians|Ephesians|Philippians|Colossians|1 Thessalonians|2 Thessalonians|1 Timothy|2 Timothy|Hebrews|James|1 Peter|2 Peter|1 John|Revelation)\s+\d+(?::[\d-]+)?/i);
+    const scripture = scriptureMatch?.[0] || '';
+    return {
+      id: `yt-${v.id}`,
+      youtubeId: v.id,
       title,
-      author,
-    });
+      preacher: channel,
+      ministry: channel,
+      scripture,
+      scriptureText: '',
+      duration: parseDuration(durationFormatted),
+      durationFormatted,
+      thumbnailUrl: v.snippet?.thumbnails?.high?.url || `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`,
+      videoUrl: `https://www.youtube-nocookie.com/embed/${v.id}`,
+      isOnlineVideo: true,
+      sourceType: live ? 'livestream' : 'youtube',
+      isLive: live,
+      verifiedChristian: true,
+      verificationConfidence: verification.confidence,
+      category: categoryFor(title),
+      series: live ? 'Live YouTube Broadcast' : 'Recorded Ministry Teaching',
+      date: v.snippet?.publishedAt || '',
+      description,
+      chapters: [{ title: 'Full Video', time: 0 }],
+      biblePassages: scripture ? [{ reference: scripture, translation: '', text: '' }] : [],
+      keyPoints: [live ? 'Currently live on YouTube.' : 'Recorded video available on YouTube.'],
+      downloadSizeMb: 0,
+      tags: [live ? 'Live' : 'Recorded', 'YouTube', channel, categoryFor(title)],
+      viewsCount: '',
+    };
+  }).filter(Boolean);
+  cacheSet(cacheKey, items);
+  return items;
+}
+
+function formatIsoDuration(iso = '') {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 'Recorded';
+  const h = Number(m[1] || 0), min = Number(m[2] || 0), sec = Number(m[3] || 0);
+  return h ? `${h}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+app.get('/api/health', (_req, res) => res.json({ success: true, youtubeConfigured: Boolean(YOUTUBE_API_KEY) }));
+
+app.get('/api/youtube/christian', async (req, res) => {
+  const q = cleanQuery(req.query.q, 'Christian worship sermon');
+  const filter = ['all', 'live', 'recorded'].includes(String(req.query.filter)) ? String(req.query.filter) : 'all';
+  const category = cleanQuery(req.query.category, 'All');
+  const relevance = checkSearchRelevance(q);
+  if (!relevance.isPermitted) return res.status(400).json({ success: false, error: relevance.warning });
+  if (!YOUTUBE_API_KEY) return res.json({ success: true, configured: false, query: q, total: 0, liveCount: 0, recordedCount: 0, videos: [] });
+  try {
+    let videos = await searchYouTube(q, filter === 'live');
+    if (filter === 'live') videos = videos.filter((v: any) => v.isLive);
+    if (filter === 'recorded') videos = videos.filter((v: any) => !v.isLive);
+    if (category !== 'All' && category !== 'Online YouTube') videos = videos.filter((v: any) => v.category === category);
+    res.json({ success: true, configured: true, query: q, filter, total: videos.length, liveCount: videos.filter((v: any) => v.isLive).length, recordedCount: videos.filter((v: any) => !v.isLive).length, videos });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(502).json({ success: false, error: error?.message || 'YouTube service unavailable' });
   }
 });
 
-// Vite middleware for development
+app.get('/api/youtube/channels', async (_req, res) => {
+  if (!YOUTUBE_API_KEY) return res.json({ success: true, configured: false, channels: [] });
+  try {
+    const videos = await searchYouTube('Christian worship live', true);
+    const channels = videos.slice(0, 6).map((v: any, i: number) => ({
+      id: `yt-ch-${v.youtubeId}`,
+      number: 101 + i,
+      name: v.ministry,
+      tagline: v.title,
+      badge: 'LIVE',
+      logoColor: 'from-blue-600 to-cyan-500',
+      category: v.category,
+      streamUrl: v.videoUrl,
+      youtubeId: v.youtubeId,
+      currentProgram: {
+        id: `yt-program-${v.youtubeId}`,
+        title: v.title,
+        speaker: v.preacher,
+        scriptureRef: v.scripture || undefined,
+        startTimeFormatted: 'LIVE NOW',
+        endTimeFormatted: 'LIVE',
+        startMinutes: 0,
+        endMinutes: 1440,
+        durationMinutes: 1440,
+        description: v.description,
+        isLive: true,
+        category: v.category,
+      },
+      upcomingPrograms: [],
+    }));
+    res.json({ success: true, configured: true, channels });
+  } catch (error: any) {
+    res.status(502).json({ success: false, error: error?.message || 'YouTube service unavailable' });
+  }
+});
+
+app.get('/api/youtube/status/:videoId', async (req, res) => {
+  const id = String(req.params.videoId || '');
+  if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) return res.status(400).json({ success: false, error: 'Invalid YouTube video ID' });
+  if (!YOUTUBE_API_KEY) return res.status(503).json({ success: false, error: 'YouTube API is not configured' });
+  try {
+    const data = await youtubeApi('videos', { part: 'snippet,liveStreamingDetails', id });
+    const v = data.items?.[0];
+    if (!v) return res.status(404).json({ success: false, error: 'Video not found' });
+    const isLive = Boolean(v.snippet?.liveBroadcastContent === 'live' || v.liveStreamingDetails?.actualStartTime && !v.liveStreamingDetails?.actualEndTime);
+    res.json({ success: true, videoId: id, isLive, status: isLive ? 'LIVE' : 'RECORDED', title: v.snippet?.title || '', author: v.snippet?.channelTitle || '' });
+  } catch (error: any) {
+    res.status(502).json({ success: false, error: error?.message || 'YouTube service unavailable' });
+  }
+});
+
+function isSyncCode(code: unknown): code is string { return typeof code === 'string' && /^\d{3}-\d{3}$/.test(code); }
+function newSyncCode() { return `${crypto.randomInt(100, 1000)}-${crypto.randomInt(100, 1000)}`; }
+function sanitizeSyncState(state: any) {
+  if (!state || typeof state !== 'object') throw new Error('Invalid sync state');
+  const arr = (x: any) => Array.isArray(x) ? x.slice(0, 500) : [];
+  return {
+    syncCode: isSyncCode(state.syncCode) ? state.syncCode : newSyncCode(),
+    lastSynced: typeof state.lastSynced === 'string' && !Number.isNaN(Date.parse(state.lastSynced)) ? state.lastSynced : new Date().toISOString(),
+    deviceName: typeof state.deviceName === 'string' ? state.deviceName.slice(0, 80) : 'GospelStream Device',
+    currentProfileId: typeof state.currentProfileId === 'string' ? state.currentProfileId.slice(0, 80) : '',
+    profiles: Array.isArray(state.profiles) ? state.profiles.slice(0, 10) : [],
+    favorites: arr(state.favorites), watchLater: arr(state.watchLater), continueWatching: arr(state.continueWatching),
+    reminders: arr(state.reminders), notes: arr(state.notes), downloadedSermons: arr(state.downloadedSermons),
+    fontSize: ['normal', 'large', 'extra-large'].includes(state.fontSize) ? state.fontSize : 'normal',
+    closedCaptionsEnabled: Boolean(state.closedCaptionsEnabled),
+  };
+}
+
+app.post('/api/sync/pair', async (req, res) => {
+  await loadSyncStore();
+  const requested = req.body?.code;
+  if (!isSyncCode(requested)) return res.status(400).json({ success: false, error: 'Enter a valid 6-digit pairing code in 123-456 format.' });
+  const entry = syncStore[requested];
+  if (!entry || entry.expiresAt <= Date.now()) return res.status(404).json({ success: false, error: 'Pairing code not found or expired.' });
+  res.json({ success: true, state: entry.state, updatedAt: entry.updatedAt });
+});
+
+app.put('/api/sync/:code', async (req, res) => {
+  await loadSyncStore();
+  const code = req.params.code;
+  if (!isSyncCode(code)) return res.status(400).json({ success: false, error: 'Invalid pairing code.' });
+  try {
+    const state = sanitizeSyncState(req.body?.state);
+    syncStore[code] = { state, updatedAt: Date.now(), expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 };
+    await persistSyncStore();
+    res.json({ success: true, state, updatedAt: syncStore[code].updatedAt });
+  } catch (error: any) { res.status(400).json({ success: false, error: error?.message || 'Invalid sync state' }); }
+});
+
+app.get('/api/sync/:code', async (req, res) => {
+  await loadSyncStore();
+  const code = req.params.code;
+  if (!isSyncCode(code)) return res.status(400).json({ success: false, error: 'Invalid pairing code.' });
+  const entry = syncStore[code];
+  if (!entry || entry.expiresAt <= Date.now()) return res.status(404).json({ success: false, error: 'No synchronized state found for this code.' });
+  res.json({ success: true, state: entry.state, updatedAt: entry.updatedAt });
+});
+
+app.post('/api/sync/code', async (_req, res) => {
+  await loadSyncStore();
+  let code = newSyncCode();
+  while (syncStore[code]) code = newSyncCode();
+  syncStore[code] = { state: null, updatedAt: Date.now(), expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 };
+  await persistSyncStore();
+  res.json({ success: true, code });
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`GospelStream Server running on http://localhost:${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`GospelStream Server running on http://localhost:${PORT}`));
 }
-
-startServer();
+startServer().catch((error) => { console.error(error); process.exit(1); });

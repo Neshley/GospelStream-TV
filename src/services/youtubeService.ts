@@ -86,11 +86,12 @@ export async function checkYouTubeVideoStatus(videoId: string): Promise<{
   status: 'LIVE' | 'RECORDED';
   title: string;
   author: string;
+  available: boolean;
 }> {
   try {
     const res = await fetch(`/api/youtube/status/${videoId}`);
     if (!res.ok) {
-      return { isLive: false, status: 'RECORDED', title: '', author: '' };
+      return { isLive: false, status: 'RECORDED', title: '', author: '', available: false };
     }
     const data = await res.json();
     return {
@@ -98,8 +99,9 @@ export async function checkYouTubeVideoStatus(videoId: string): Promise<{
       status: data.isLive ? 'LIVE' : 'RECORDED',
       title: data.title || '',
       author: data.author || '',
+      available: Boolean(data.success),
     };
   } catch {
-    return { isLive: false, status: 'RECORDED', title: '', author: '' };
+    return { isLive: false, status: 'RECORDED', title: '', author: '', available: false };
   }
 }

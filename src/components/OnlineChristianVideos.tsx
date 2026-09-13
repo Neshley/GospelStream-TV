@@ -335,6 +335,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
     try {
       // Check whether this specific video is currently live on YouTube
       const statusRes = await checkYouTubeVideoStatus(youtubeId);
+      if (!statusRes.available) throw new Error('YouTube status verification is unavailable. Configure YOUTUBE_API_KEY on the server before importing videos.');
       const isLiveNow = statusRes.isLive;
 
       const newVideo: Sermon = {
@@ -343,7 +344,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         preacher: inputMinistry.trim() || statusRes.author || 'Guest Pastor',
         ministry: inputMinistry.trim() || 'Christian Ministry',
         scripture: inputScripture.trim() || 'Scripture Reference',
-        scriptureText: 'Thy word is a lamp unto my feet, and a light unto my path. (Psalm 119:105)',
+        scriptureText: '',
         duration: isLiveNow ? 0 : 2700,
         durationFormatted: isLiveNow ? 'LIVE' : '45:00',
         thumbnailUrl: getYouTubeThumbnail(youtubeId),
@@ -355,15 +356,15 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
         verifiedChristian: true,
         category: inputCategory,
         date: isLiveNow ? 'Streaming Live on YouTube' : 'Uploaded to YouTube',
-        description: `Christian video: ${inputTitle}. ${isLiveNow ? '🔴 Live Stream currently on YouTube.' : '🎬 Recorded Christian message.'} Verified under GospelStream Christian Content Guidelines.`,
+        description: `${inputTitle}. ${isLiveNow ? '🔴 Live Stream currently on YouTube.' : '🎬 Recorded Christian message.'}`,
         chapters: [
           { title: isLiveNow ? 'Live Stream' : 'Full Sermon / Worship', time: 0 },
         ],
         biblePassages: [
           {
-            reference: inputScripture || '2 Timothy 3:16',
-            translation: 'NIV',
-            text: 'All Scripture is God-breathed and is useful for teaching, rebuking, correcting and training in righteousness.'
+            reference: inputScripture || '',
+            translation: '',
+            text: ''
           }
         ],
         keyPoints: [
@@ -905,7 +906,7 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                 </div>
                 <div>
                   <h3 className="font-display text-base font-bold text-white">Import YouTube Christian Video</h3>
-                  <p className="text-xs text-slate-400">Live or recorded video will be verified automatically</p>
+                  <p className="text-xs text-slate-400">Live or recorded video will be checked against the Christian-content rules</p>
                 </div>
               </div>
               <button

@@ -103,6 +103,8 @@ export interface DownloadedItem {
   downloadedAt: string;
   quality: '1080p' | '720p' | 'Audio Only';
   sizeMb: number;
+  sourceUrl?: string;
+  storageKey?: string;
 }
 
 export interface UserProfile {

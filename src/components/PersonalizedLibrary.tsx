@@ -82,7 +82,7 @@ export const PersonalizedLibrary: React.FC<PersonalizedLibraryProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Your saved messages, resume positions, and personal reflections sync seamlessly to your phone, tablet, and smart TV.
+              Your saved messages, resume positions, and personal reflections sync to other GospelStream devices paired with the same code.
             </p>
           </div>
         </div>
