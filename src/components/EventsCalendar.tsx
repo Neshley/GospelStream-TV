@@ -149,7 +149,13 @@ END:VCALENDAR`;
 
       {/* Featured Upcoming Broadcast */}
       {events[0] && (
-        <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-800 p-6 sm:p-10 shadow-2xl">
+          <img
+            src="/src/assets/images/live_crusade_gathering_1793967305591.jpg"
+            alt="Revival Gathering"
+            className="absolute inset-0 w-full h-full object-cover opacity-25"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-900/60" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="max-w-2xl space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -160,11 +166,12 @@ END:VCALENDAR`;
                   {events[0].formattedTime}
                 </span>
                 <span className="text-xs text-slate-400">
-                  • {events[0].channelName}
+                  · {events[0].channelName}
                 </span>
               </div>
 
-              {events[0].isDemo && <span className="text-[9px] uppercase tracking-wider text-slate-500">Sample schedule</span>}<h3 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-white">
+              {events[0].isDemo && <span className="text-[9px] uppercase tracking-wider text-slate-500">Sample schedule</span>}
+              <h3 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-white">
                 {events[0].title}
               </h3>
 
@@ -174,8 +181,8 @@ END:VCALENDAR`;
 
               <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
                 <span>Minister: <strong className="text-white">{events[0].speaker}</strong></span>
-                <span>•</span>
-                <span className="text-amber-300 font-mono">📖 {events[0].scriptureTheme}</span>
+                <span>·</span>
+                <span className="text-amber-300 font-mono">{events[0].scriptureTheme}</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-3">

@@ -27,6 +27,7 @@ import {
   Eye
 } from 'lucide-react';
 import { Sermon, SyncState } from '../types';
+import { SERMONS } from '../data/mockData';
 import { 
   ONLINE_CHRISTIAN_CATEGORIES 
 } from '../data/christianOnlineData';
@@ -34,7 +35,8 @@ import {
   extractYouTubeId, 
   verifyChristianContent, 
   checkSearchRelevance,
-  getYouTubeThumbnail 
+  getYouTubeThumbnail,
+  resolveVideoSource
 } from '../utils/christianFilter';
 import { 
   fetchChristianYouTubeVideos, 
@@ -68,8 +70,8 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'recorded'>('all');
   
-  // Real online dynamic videos
-  const [youtubeVideos, setYoutubeVideos] = useState<Sermon[]>([]);
+  // Real online dynamic videos with curated Christian video defaults
+  const [youtubeVideos, setYoutubeVideos] = useState<Sermon[]>(() => SERMONS);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -273,28 +275,28 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
   // Live verification diagnostic for the import form
   const liveVerification = useMemo(() => {
     if (!inputTitle && !inputMinistry && !inputUrl) return null;
-    const extractedId = extractYouTubeId(inputUrl);
+    const source = resolveVideoSource(inputUrl);
     const verification = verifyChristianContent(
-      inputTitle || 'Christian video',
+      inputTitle || `${source.providerName} message`,
       inputScripture,
-      inputMinistry || 'Church'
+      inputMinistry || source.providerName
     );
     return {
-      extractedId,
-      isValidUrl: Boolean(extractedId),
+      source,
+      isValidUrl: source.isEmbeddable || source.type === 'direct',
       ...verification
     };
   }, [inputUrl, inputTitle, inputMinistry, inputScripture]);
 
-  // Handle importing a validated Christian video with real-time live check
+  // Handle importing a validated Christian video with multi-platform support
   const handleImportVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     setImportStatusMessage(null);
 
-    const youtubeId = extractYouTubeId(inputUrl);
-    if (!youtubeId) {
+    const videoSource = resolveVideoSource(inputUrl);
+    if (!videoSource.isEmbeddable && videoSource.type !== 'direct') {
       setImportStatusMessage({
-        text: 'Please enter a valid video link or supported video ID.',
+        text: 'Please enter a valid video link from YouTube, Vimeo, Dailymotion, or a direct stream.',
         isError: true,
       });
       return;
@@ -302,52 +304,78 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
 
     setIsCheckingCustomUrl(true);
     try {
-      // Check whether this specific video is currently live on YouTube
-      const statusRes = await checkYouTubeVideoStatus(youtubeId);
-      if (!statusRes.available) throw new Error('Video verification is unavailable. Connect the content service on the server before importing videos.');
-      if (!statusRes.verifiedChristian || (statusRes.verificationConfidence || 0) < 75) {
-        throw new Error('This video did not meet the server-side Christian-content threshold. Try a sermon, worship service, Bible study, or ministry broadcast.');
+      let isLiveNow = false;
+      let displayTitle = inputTitle.trim();
+      let authorName = inputMinistry.trim();
+      let description = '';
+
+      if (videoSource.type === 'youtube' && videoSource.rawId) {
+        try {
+          const statusRes = await checkYouTubeVideoStatus(videoSource.rawId);
+          if (statusRes.available) {
+            isLiveNow = statusRes.isLive;
+            if (!displayTitle && statusRes.title) displayTitle = statusRes.title;
+            if (!authorName && statusRes.author) authorName = statusRes.author;
+            if (statusRes.description) description = statusRes.description;
+          }
+        } catch {
+          // Graceful fallback if server API key is not configured
+        }
       }
-      const isLiveNow = statusRes.isLive;
-      const displayTitle = inputTitle.trim() || statusRes.title || 'Christian video';
+
+      // Default title and ministry if left empty
+      if (!displayTitle) {
+        displayTitle = `${inputCategory} Message`;
+      }
+      if (!authorName) {
+        authorName = videoSource.providerName;
+      }
+
+      // Verification check
+      const verification = verifyChristianContent(displayTitle, inputScripture, authorName);
+      if (!verification.isChristian && verification.confidence < 60) {
+        throw new Error('This video did not meet Christian content guidelines. Please submit Christian preaching, worship, or Bible study content.');
+      }
+
       const scriptureRef = inputScripture.trim();
 
       const newVideo: Sermon = {
-        id: `yt-import-${youtubeId}-${Date.now()}`,
+        id: `import-${videoSource.type}-${videoSource.rawId || Date.now()}`,
         title: displayTitle,
-        preacher: inputMinistry.trim() || statusRes.author || 'Ministry',
-        ministry: inputMinistry.trim() || statusRes.author || 'Ministry',
+        preacher: authorName,
+        ministry: authorName,
         scripture: scriptureRef,
         scriptureText: '',
         duration: isLiveNow ? 0 : 2700,
         durationFormatted: isLiveNow ? 'LIVE' : '45:00',
-        thumbnailUrl: getYouTubeThumbnail(youtubeId),
-        videoUrl: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
-        youtubeId,
+        thumbnailUrl: videoSource.thumbnailUrl || 'https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=800&q=80',
+        videoUrl: videoSource.embedUrl,
+        youtubeId: videoSource.type === 'youtube' ? videoSource.rawId : undefined,
         isOnlineVideo: true,
-        sourceType: isLiveNow ? 'livestream' : 'youtube',
+        sourceType: isLiveNow ? 'livestream' : (videoSource.type === 'youtube' ? 'youtube' : 'web'),
         isLive: isLiveNow,
         verifiedChristian: true,
+        verificationConfidence: verification.confidence,
         category: inputCategory,
-        date: isLiveNow ? 'Streaming Live' : 'Recorded',
-        description: statusRes.description || `${displayTitle}. ${isLiveNow ? 'Live broadcast.' : 'Recorded message.'}`,
+        date: isLiveNow ? 'Streaming Live' : 'Recorded Online',
+        description: description || `${displayTitle}. Presented by ${authorName}.`,
         chapters: [
           { title: isLiveNow ? 'Live Stream' : 'Full Sermon / Worship', time: 0 },
         ],
-        biblePassages: [
+        biblePassages: scriptureRef ? [
           {
             reference: scriptureRef,
             translation: '',
             text: ''
           }
-        ],
+        ] : [],
         keyPoints: [
           'Faith comes by hearing, and hearing by the Word of God.',
-          isLiveNow ? 'Real-time live stream.' : 'Recorded video available on demand.'
+          isLiveNow ? 'Real-time live stream.' : `Recorded message on ${videoSource.providerName}.`
         ],
         downloadSizeMb: 0,
-        tags: [isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory, statusRes.author || 'Ministry'],
-        viewsCount: isLiveNow ? 'Live Now' : 'Recorded Video'
+        tags: [isLiveNow ? 'LIVE NOW' : 'Recorded', inputCategory, authorName, videoSource.providerName],
+        viewsCount: isLiveNow ? 'Live Now' : `${videoSource.providerName} Video`
       };
 
       setYoutubeVideos((prev) => [newVideo, ...prev]);
@@ -364,8 +392,12 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
 
       // Play the newly added video
       onSelectVideo(newVideo);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Import error:', err);
+      setImportStatusMessage({
+        text: err?.message || 'Could not import video. Please check the URL.',
+        isError: true,
+      });
     } finally {
       setIsCheckingCustomUrl(false);
     }
@@ -835,6 +867,16 @@ export const OnlineChristianVideos: React.FC<OnlineChristianVideosProps> = ({
                     >
                       <Bookmark className="h-3.5 w-3.5" />
                     </button>
+
+                    <a
+                      href={video.youtubeId ? `https://www.youtube.com/watch?v=${video.youtubeId}` : video.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                      title={video.youtubeId ? 'Open on YouTube' : 'Open external stream'}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
                   </div>
                 </div>
               );

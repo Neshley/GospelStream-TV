@@ -67,24 +67,153 @@ export function checkSearchRelevance(query: string) {
 }
 
 export function extractYouTubeId(input: string): string | null {
+  if (!input) return null;
+  const raw = String(input).trim();
+  // If it's already an 11-char YouTube ID
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
+
+  // Try parsing as standard URL
   try {
-    const url = new URL(input);
-    if (url.hostname === 'youtu.be') return url.pathname.slice(1).match(/^[A-Za-z0-9_-]{6,20}$/)?.[0] || null;
-    if (url.hostname.endsWith('youtube.com')) {
-      const v = url.searchParams.get('v');
-      if (v && /^[A-Za-z0-9_-]{6,20}$/.test(v)) return v;
-      const match = url.pathname.match(/\/embed\/([A-Za-z0-9_-]{6,20})/);
-      return match?.[1] || null;
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    if (host === 'youtu.be') {
+      const id = url.pathname.slice(1).split('/')[0];
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) return id;
     }
-  } catch { /* not a URL */ }
-  return null;
+    if (host.includes('youtube.com')) {
+      const v = url.searchParams.get('v');
+      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      // Handles /embed/ID, /live/ID, /shorts/ID, /v/ID
+      const specialIndex = pathParts.findIndex((p) => ['embed', 'live', 'shorts', 'v'].includes(p.toLowerCase()));
+      if (specialIndex !== -1 && pathParts[specialIndex + 1]) {
+        const candidate = pathParts[specialIndex + 1].match(/^[A-Za-z0-9_-]{11}/)?.[0];
+        if (candidate) return candidate;
+      }
+    }
+  } catch {
+    // If not a standard URL, search string with regex
+  }
+
+  const match = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|live\/|shorts\/))([A-Za-z0-9_-]{11})/);
+  return match?.[1] || null;
 }
 
 export function getYouTubeEmbedUrl(id: string, options: { autoplay?: boolean; mute?: boolean; rel?: number; loop?: boolean } = {}) {
-  const params = new URLSearchParams({ autoplay: options.autoplay ? '1' : '0', mute: options.mute ? '1' : '0', rel: String(options.rel ?? 0), enablejsapi: '1', modestbranding: '1', playsinline: '1' });
-  if (options.loop) { params.set('loop', '1'); params.set('playlist', id); }
-  if (typeof window !== 'undefined') params.set('origin', window.location.origin);
-  return `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+  const params = new URLSearchParams({
+    autoplay: options.autoplay ? '1' : '0',
+    mute: options.mute ? '1' : '0',
+    rel: '0',
+    enablejsapi: '1',
+    playsinline: '1',
+    modestbranding: '1',
+  });
+  if (options.loop) {
+    params.set('loop', '1');
+    params.set('playlist', id);
+  }
+  return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }
 
-export function getYouTubeThumbnail(id: string) { return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; }
+export function getYouTubeThumbnail(id: string) {
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+export interface VideoSourceInfo {
+  type: 'youtube' | 'vimeo' | 'dailymotion' | 'direct' | 'iframe';
+  embedUrl: string;
+  externalUrl: string;
+  providerName: string;
+  rawId?: string;
+  thumbnailUrl?: string;
+  isEmbeddable: boolean;
+}
+
+export function resolveVideoSource(inputUrlOrId: string, options: { autoplay?: boolean; mute?: boolean } = {}): VideoSourceInfo {
+  if (!inputUrlOrId) {
+    return {
+      type: 'direct',
+      embedUrl: '',
+      externalUrl: '',
+      providerName: 'Media Stream',
+      isEmbeddable: false,
+    };
+  }
+
+  const raw = String(inputUrlOrId).trim();
+
+  // 1. YouTube Detection
+  const ytId = extractYouTubeId(raw);
+  if (ytId) {
+    return {
+      type: 'youtube',
+      rawId: ytId,
+      embedUrl: getYouTubeEmbedUrl(ytId, options),
+      externalUrl: `https://www.youtube.com/watch?v=${ytId}`,
+      providerName: 'YouTube',
+      thumbnailUrl: getYouTubeThumbnail(ytId),
+      isEmbeddable: true,
+    };
+  }
+
+  // 2. Vimeo Detection (vimeo.com/123456789 or player.vimeo.com/video/123456789)
+  const vimeoMatch = raw.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/);
+  if (vimeoMatch?.[1]) {
+    const vimeoId = vimeoMatch[1];
+    return {
+      type: 'vimeo',
+      rawId: vimeoId,
+      embedUrl: `https://player.vimeo.com/video/${vimeoId}?autoplay=${options.autoplay ? '1' : '0'}&muted=${options.mute ? '1' : '0'}&dnt=1`,
+      externalUrl: `https://vimeo.com/${vimeoId}`,
+      providerName: 'Vimeo',
+      thumbnailUrl: `https://vumbnail.com/${vimeoId}.jpg`,
+      isEmbeddable: true,
+    };
+  }
+
+  // 3. Dailymotion Detection (dailymotion.com/video/ID or dai.ly/ID)
+  const dmMatch = raw.match(/(?:dailymotion\.com\/(?:video\/|embed\/video\/)|dai\.ly\/)([A-Za-z0-9]+)/);
+  if (dmMatch?.[1]) {
+    const dmId = dmMatch[1];
+    return {
+      type: 'dailymotion',
+      rawId: dmId,
+      embedUrl: `https://www.dailymotion.com/embed/video/${dmId}?autoplay=${options.autoplay ? '1' : '0'}&mute=${options.mute ? '1' : '0'}`,
+      externalUrl: `https://www.dailymotion.com/video/${dmId}`,
+      providerName: 'Dailymotion',
+      thumbnailUrl: `https://www.dailymotion.com/thumbnail/video/${dmId}`,
+      isEmbeddable: true,
+    };
+  }
+
+  // 4. Direct video files & streams (.mp4, .webm, .ogg, .m3u8, .mov)
+  if (/\.(mp4|webm|ogv|ogg|mov|m3u8)(\?.*)?$/i.test(raw)) {
+    return {
+      type: 'direct',
+      embedUrl: raw,
+      externalUrl: raw,
+      providerName: 'Direct Video Stream',
+      isEmbeddable: true,
+    };
+  }
+
+  // 5. Generic HTTPS iframe / Embed link (e.g. Christian ministry embeds, soundcloud, sermon audio)
+  if (/^https?:\/\//i.test(raw)) {
+    return {
+      type: 'iframe',
+      embedUrl: raw,
+      externalUrl: raw,
+      providerName: 'External Web Stream',
+      isEmbeddable: true,
+    };
+  }
+
+  return {
+    type: 'direct',
+    embedUrl: raw,
+    externalUrl: raw,
+    providerName: 'Video Stream',
+    isEmbeddable: false,
+  };
+}

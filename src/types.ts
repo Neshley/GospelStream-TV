@@ -51,9 +51,10 @@ export interface Sermon {
   videoUrl: string;
   youtubeId?: string;
   isOnlineVideo?: boolean;
-  sourceType?: 'youtube' | 'direct' | 'livestream';
+  sourceType?: 'youtube' | 'direct' | 'livestream' | 'vimeo' | 'dailymotion' | 'web';
   isLive?: boolean; // TRUE if video is live on YouTube, FALSE if recorded/uploaded
   verifiedChristian?: boolean;
+  verificationConfidence?: number;
   category: 'Sunday Sermons' | 'Faith & Healing' | 'Walking in the Spirit' | 'Family & Marriage' | 'Prayer & Fasting' | 'Deep Bible Study' | 'Worship Nights' | 'Documentaries' | string;
   series?: string;
   date: string;

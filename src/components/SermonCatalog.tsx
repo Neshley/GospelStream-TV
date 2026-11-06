@@ -17,7 +17,8 @@ import {
   Filter, 
   Film,
   Tag,
-  Youtube
+  Youtube,
+  ExternalLink
 } from 'lucide-react';
 
 interface SermonCatalogProps {
@@ -168,8 +169,14 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
       {/* Featured Banner (Shown when no search filter is active) */}
       {!searchQuery && selectedCategory === 'All' && featuredSermon && (
         <div 
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950/70 border border-slate-800 shadow-2xl p-6 sm:p-8"
+          className="relative overflow-hidden rounded-3xl border border-slate-800 shadow-2xl p-6 sm:p-10"
         >
+          <img
+            src="/src/assets/images/bible_wisdom_study_1793967306328.jpg"
+            alt="Bible Study"
+            className="absolute inset-0 w-full h-full object-cover opacity-35"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-900/60" />
           <div className="relative z-10 max-w-2xl space-y-4">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 rounded-lg bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-300 border border-amber-500/30">
@@ -181,18 +188,18 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
               </span>
             </div>
 
-            <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white">
+            <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
               {featuredSermon.title}
             </h2>
 
-            <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 line-clamp-3 leading-relaxed">
               {featuredSermon.description}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 onClick={() => onSelectSermon(featuredSermon)}
-                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-5 py-3 text-xs sm:text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition active:scale-95"
+                className="flex items-center gap-2 rounded-xl bg-white hover:bg-slate-100 px-5 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-xl transition active:scale-95"
               >
                 <Play className="h-4 w-4 fill-current" />
                 <span>Watch Message Now</span>
@@ -200,7 +207,7 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
 
               <button
                 onClick={() => onToggleFavorite(featuredSermon.id)}
-                className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition border ${
+                className={`flex items-center gap-2 rounded-xl px-4 py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition border ${
                   syncState.favorites.includes(featuredSermon.id)
                     ? 'bg-red-500/20 text-red-300 border-red-500/40'
                     : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-800'
@@ -212,14 +219,14 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
 
               <button
                 onClick={() => onToggleWatchLater(featuredSermon.id)}
-                className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition border ${
+                className={`flex items-center gap-2 rounded-xl px-4 py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition border ${
                   syncState.watchLater.includes(featuredSermon.id)
                     ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
                     : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-800'
                 }`}
               >
                 <Bookmark className={`h-4 w-4 ${syncState.watchLater.includes(featuredSermon.id) ? 'fill-current' : ''}`} />
-                <span>{syncState.watchLater.includes(featuredSermon.id) ? 'Saved for Later' : 'Watch Later'}</span>
+                <span>{syncState.watchLater.includes(featuredSermon.id) ? 'Saved' : 'Watch Later'}</span>
               </button>
             </div>
           </div>
@@ -319,8 +326,8 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
                   {/* Body Content */}
                   <div className="flex flex-1 flex-col p-4 space-y-2">
                     <div className="flex items-center justify-between gap-1 text-[11px] font-mono text-amber-400">
-                      <span>📖 {sermon.scripture}</span>
-                      <span className="text-slate-500">{sermon.date}</span>
+                      <span>{sermon.scripture}</span>
+                      <span className="text-slate-500 font-sans">{sermon.date}</span>
                     </div>
 
                     <h4 
@@ -364,6 +371,16 @@ export const SermonCatalog: React.FC<SermonCatalogProps> = ({
                         >
                           <Bookmark className={`h-4 w-4 ${isWatchLater ? 'fill-current' : ''}`} />
                         </button>
+
+                        <a
+                          href={sermon.youtubeId ? `https://www.youtube.com/watch?v=${sermon.youtubeId}` : sermon.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                          title={sermon.youtubeId ? 'Open on YouTube' : 'Open external stream'}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
 
                         {!isDownloaded && (
                           <button

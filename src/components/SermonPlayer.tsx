@@ -28,9 +28,10 @@ import {
   Headphones,
   RefreshCw,
   ShieldCheck,
-  Film
+  Film,
+  ExternalLink
 } from 'lucide-react';
-import { extractYouTubeId, getYouTubeEmbedUrl } from '../utils/christianFilter';
+import { extractYouTubeId, getYouTubeEmbedUrl, resolveVideoSource } from '../utils/christianFilter';
 import { getCachedMediaUrl } from '../services/offlineService';
 
 interface SermonPlayerProps {
@@ -78,15 +79,17 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
   const downloadedItem = syncState.downloadedSermons.find((d) => d.sermonId === sermon.id);
   const isDownloaded = Boolean(downloadedItem);
 
-  const youtubeVideoId = sermon.youtubeId || extractYouTubeId(sermon.videoUrl);
-  const isYouTubeVideo = Boolean(youtubeVideoId);
+  const videoSource = resolveVideoSource(sermon.youtubeId || sermon.videoUrl, { autoplay: isPlaying, mute: isMuted });
+  const isEmbeddable = videoSource.isEmbeddable && videoSource.type !== 'direct';
+  const isYouTubeVideo = Boolean(videoSource.type === 'youtube');
+  const youtubeVideoId = videoSource.type === 'youtube' ? videoSource.rawId : (sermon.youtubeId || extractYouTubeId(sermon.videoUrl));
 
   useEffect(() => {
     let active = true;
     setVideoSrc(sermon.videoUrl); setHasVideoError(false); setIsPlaying(true);
-    if (isOfflineMode && !youtubeVideoId) getCachedMediaUrl(sermon.id).then((url) => { if (active && url) setVideoSrc(url); });
+    if (isOfflineMode && !isEmbeddable) getCachedMediaUrl(sermon.id).then((url) => { if (active && url) setVideoSrc(url); });
     return () => { active = false; };
-  }, [sermon.id, sermon.videoUrl, isOfflineMode, youtubeVideoId]);
+  }, [sermon.id, sermon.videoUrl, isOfflineMode, isEmbeddable]);
 
   // Check if there was previous continue-watching progress
   useEffect(() => {
@@ -259,33 +262,49 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
         <div className="lg:col-span-8 flex flex-col space-y-4">
           {/* Video Container */}
           <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black border border-slate-800 shadow-2xl">
-            {isYouTubeVideo ? (
+            {isEmbeddable ? (
               <div className="relative h-full w-full bg-black">
                 <iframe
-                  src={getYouTubeEmbedUrl(youtubeVideoId!, { autoplay: true, mute: false, rel: 0 })}
+                  src={videoSource.embedUrl}
                   title={sermon.title}
                   className="h-full w-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
-                {/* Status Watermark */}
-                <div className={`absolute top-3 left-3 z-10 flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold backdrop-blur-md pointer-events-none shadow-lg ${
-                  sermon.isLive
-                    ? 'bg-slate-950/85 border border-red-500/50 text-red-300'
-                    : 'bg-slate-950/85 border border-slate-700 text-slate-300'
-                }`}>
-                  {sermon.isLive ? (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                      <span>🔴 LIVE NOW</span>
-                    </>
-                  ) : (
-                    <>
-                      <Film className="h-3.5 w-3.5 text-blue-400" />
-                      <span>🎬 RECORDED MESSAGE</span>
-                    </>
-                  )}
+                {/* Status & Source Watermark */}
+                <div className="absolute top-3 left-3 z-10 flex items-center gap-2 pointer-events-none">
+                  <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold backdrop-blur-md shadow-lg ${
+                    sermon.isLive
+                      ? 'bg-slate-950/85 border border-red-500/50 text-red-300'
+                      : 'bg-slate-950/85 border border-slate-700 text-slate-300'
+                  }`}>
+                    {sermon.isLive ? (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                        <span>🔴 LIVE NOW</span>
+                      </>
+                    ) : (
+                      <>
+                        <Film className="h-3.5 w-3.5 text-blue-400" />
+                        <span>{videoSource.providerName.toUpperCase()} STREAM</span>
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {/* External site direct watch button */}
+                {videoSource.externalUrl && (
+                  <a
+                    href={videoSource.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 px-3 py-1 text-[11px] font-medium text-slate-200 hover:text-white shadow-lg backdrop-blur-md transition group"
+                    title={`Watch directly on ${videoSource.providerName}`}
+                  >
+                    <span>Open on {videoSource.providerName}</span>
+                    <ExternalLink className="h-3 w-3 text-blue-400 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                )}
               </div>
             ) : !hasVideoError ? (
               <video
@@ -319,13 +338,26 @@ export const SermonPlayer: React.FC<SermonPlayerProps> = ({
                 <div className="rounded-xl bg-slate-900/80 border border-slate-800 px-4 py-2 text-xs sm:text-sm text-amber-200 mb-4 max-w-md backdrop-blur-md">
                   📖 <strong>{sermon.scripture}:</strong> "{sermon.scriptureText}"
                 </div>
-                <button
-                  onClick={handleRetryStream}
-                  className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white transition shadow-lg"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  <span>Retry Media Source</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleRetryStream}
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white transition shadow-lg"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Retry Media Source</span>
+                  </button>
+                  {videoSource.externalUrl && (
+                    <a
+                      href={videoSource.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-200 transition"
+                    >
+                      <span>Watch on {videoSource.providerName}</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-blue-400" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 

@@ -8,6 +8,7 @@ import {
   SermonNote 
 } from './types';
 import { 
+  CHANNELS,
   SERMONS, 
   UPCOMING_EVENTS 
 } from './data/mockData';
@@ -54,8 +55,8 @@ import {
 export default function App() {
   const [syncState, setSyncState] = useState<SyncState>(loadSyncState);
   const [currentTab, setCurrentTab] = useState<AppTab>('live-tv');
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
+  const [channels, setChannels] = useState<Channel[]>(CHANNELS);
+  const [currentChannel, setCurrentChannel] = useState<Channel | null>(CHANNELS[0] || null);
   const [selectedSermon, setSelectedSermon] = useState<Sermon | null>(null);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>('desktop');
   const [isTvRemoteOpen, setIsTvRemoteOpen] = useState(false);
@@ -88,10 +89,14 @@ export default function App() {
         ]);
 
         if (channelsRes.status === 'fulfilled' && channelsRes.value.length > 0) {
-          setChannels(channelsRes.value);
+          const map = new Map<string, Channel>();
+          channelsRes.value.forEach((c) => map.set(c.id, c));
+          CHANNELS.forEach((c) => { if (!map.has(c.id)) map.set(c.id, c); });
+          const combined = Array.from(map.values());
+          setChannels(combined);
           setCurrentChannel((prev) => {
-            const found = channelsRes.value.find((c) => c.id === prev.id);
-            return found || channelsRes.value[0];
+            const found = combined.find((c) => c.id === prev?.id);
+            return found || combined[0];
           });
         }
 
@@ -400,6 +405,12 @@ export default function App() {
               syncState={syncState}
               onPlay={(s) => setSelectedSermon(s)}
               onNavigate={(tab) => setCurrentTab(tab)}
+              channels={channels}
+              currentChannel={currentChannel}
+              onSelectChannel={(ch) => {
+                setCurrentChannel(ch);
+                showToast(`Watching CH ${ch.number}: ${ch.name}`);
+              }}
             />
             <div className="home-live-stage">
               <div className="stage-label"><Radio size={16} /> CHANNELS & LIVE TELEVISION</div>
@@ -523,6 +534,66 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Floating Smart TV Remote Launcher */}
+      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+        <button
+          id="btn-toggle-tv-remote"
+          onClick={() => setIsTvRemoteOpen((v) => !v)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl transition-all active:scale-95 border ${
+            isTvRemoteOpen
+              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-amber-500/20'
+              : 'bg-slate-900/90 hover:bg-slate-800 text-white border-slate-700/80 backdrop-blur-xl hover:border-blue-400/50'
+          }`}
+          title="Toggle Smart TV Virtual Remote"
+        >
+          <Tv size={16} className={isTvRemoteOpen ? 'text-slate-950' : 'text-blue-400'} />
+          <span>{isTvRemoteOpen ? 'Close Remote' : 'TV Remote'}</span>
+        </button>
+      </div>
+
+      {/* Global Footer */}
+      <footer className="mt-16 border-t border-slate-800/80 bg-slate-950/80 backdrop-blur-md py-8 px-4 sm:px-8 text-xs text-slate-400">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow">
+              <Flame size={14} fill="currentColor" />
+            </span>
+            <span className="font-bold text-white tracking-tight">GospelStream TV</span>
+            <span className="text-slate-600">·</span>
+            <span>Faith · Live · Together</span>
+          </div>
+
+          {/* Device Preview Mode Switcher */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-900 p-1 border border-slate-800">
+            <span className="text-[10px] text-slate-500 px-2 uppercase font-bold tracking-wider">View Mode</span>
+            {(['desktop', 'smart-tv', 'tablet', 'mobile'] as DeviceMode[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => {
+                  setDeviceMode(mode);
+                  showToast(`Switched view layout to ${mode.toUpperCase()} mode`);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition capitalize ${
+                  deviceMode === mode
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {mode === 'smart-tv' ? 'Smart TV' : mode}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 text-slate-500 text-[11px]">
+            <span>Press 1–6 to tune channels</span>
+            <span>·</span>
+            <span>C for guide</span>
+            <span>·</span>
+            <span>Esc to back</span>
+          </div>
+        </div>
+      </footer>
 
       {/* Sermon Player Modal */}
       {selectedSermon && (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Tv, List, BookOpen, Bookmark, Bell, DownloadCloud, Cast, Flame,
-  Check, ChevronDown, Youtube, MoreHorizontal
+  Check, ChevronDown, Youtube, Radio
 } from 'lucide-react';
 import { AppTab, SyncState } from '../types';
 
@@ -20,79 +20,151 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProfile, unreadAlertsCount, onOpenAlerts,
 }) => {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const currentProfile = syncState.profiles.find(p => p.id === syncState.currentProfileId) || syncState.profiles[0];
 
-  const primary: { id: AppTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'live-tv', label: 'Home', icon: <Tv /> },
-    { id: 'online-videos', label: 'Discover', icon: <Youtube /> },
-    { id: 'guide', label: 'Guide', icon: <List /> },
-    { id: 'sermons', label: 'Sermons', icon: <BookOpen /> },
-    { id: 'library', label: 'My Library', icon: <Bookmark /> },
+  const navItems: { id: AppTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: 'live-tv', label: 'Home', icon: <Tv size={16} /> },
+    { id: 'guide', label: 'Channel Guide', icon: <List size={16} /> },
+    { id: 'sermons', label: 'Sermon Vault', icon: <BookOpen size={16} /> },
+    { id: 'online-videos', label: 'Discover', icon: <Youtube size={16} /> },
+    { id: 'events', label: 'Live Events', icon: <Radio size={16} />, badge: syncState.reminders.length || undefined },
+    { id: 'library', label: 'My Library', icon: <Bookmark size={16} /> },
+    { id: 'downloads', label: 'Offline', icon: <DownloadCloud size={16} />, badge: syncState.downloadedSermons.length || undefined },
   ];
 
-  const secondary: { id: AppTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'events', label: 'Live Events', icon: <Bell />, badge: syncState.reminders.length },
-    { id: 'downloads', label: 'Offline', icon: <DownloadCloud />, badge: syncState.downloadedSermons.length },
-  ];
-
-  const navigate = (tab: AppTab) => { onTabChange(tab); setMoreOpen(false); };
+  const navigate = (tab: AppTab) => {
+    onTabChange(tab);
+    setProfileOpen(false);
+  };
 
   return (
-    <header id="app-main-header" className="gs-topbar">
-      <div className="gs-topbar-inner">
-        <button id="brand-home-button" onClick={() => navigate('live-tv')} className="gs-brand" aria-label="GospelStream home">
-          <span className="gs-brand-mark"><Flame size={20} fill="currentColor" /></span>
-          <span className="gs-brand-copy"><strong>GospelStream</strong><em>TV</em></span>
+    <header id="app-main-header" className="gs-topbar sticky top-0 z-50 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800/80">
+      <div className="gs-topbar-inner max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
+        {/* Brand */}
+        <button
+          id="brand-home-button"
+          onClick={() => navigate('live-tv')}
+          className="flex items-center gap-3 shrink-0 group text-left"
+          aria-label="GospelStream TV Home"
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+            <Flame size={20} fill="currentColor" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-display font-bold text-base tracking-tight text-white flex items-center gap-1.5 leading-none">
+              GospelStream <span className="text-[10px] uppercase tracking-widest font-extrabold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-400/20">TV</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5 hidden sm:inline">
+              Faith · Live · Together
+            </span>
+          </div>
         </button>
 
-        <nav className="gs-main-nav" aria-label="Main navigation">
-          {primary.map(tab => (
-            <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''} aria-current={currentTab === tab.id ? 'page' : undefined}>
-              {tab.icon}<span>{tab.label}</span>
-            </button>
-          ))}
+        {/* Navigation Tabs */}
+        <nav className="hidden lg:flex items-center gap-1 overflow-x-auto py-1" aria-label="Main navigation">
+          {navItems.map(item => {
+            const isActive = currentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.id)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-blue-600/20 text-white border border-blue-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                }`}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-800 text-amber-300 font-bold border border-slate-700">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="gs-actions">
-          <div className="gs-more-wrap">
-            <button className={`gs-icon-btn ${moreOpen ? 'selected' : ''}`} onClick={() => setMoreOpen(v => !v)} aria-label="More GospelStream options" aria-expanded={moreOpen} title="More">
-              <MoreHorizontal size={19} />
-            </button>
-            {moreOpen && (
-              <div className="gs-popover gs-more-menu">
-                <div className="gs-menu-label">More</div>
-                {secondary.map(item => (
-                  <button key={item.id} onClick={() => navigate(item.id)} className={currentTab === item.id ? 'current' : ''}>
-                    {item.icon}<span>{item.label}</span>{item.badge ? <b>{item.badge}</b> : null}
-                  </button>
-                ))}
-              </div>
+        {/* Actions Zone */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Notifications */}
+          <button
+            id="btn-header-notifications"
+            onClick={onOpenAlerts}
+            className="relative p-2 rounded-xl text-slate-300 hover:text-white bg-slate-900/70 hover:bg-slate-800 border border-slate-800 transition"
+            aria-label="Alerts & Reminders"
+            title="Alerts & Broadcast Reminders"
+          >
+            <Bell size={17} />
+            {unreadAlertsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white font-mono text-[9px] font-bold flex items-center justify-center border-2 border-slate-950">
+                {unreadAlertsCount}
+              </span>
             )}
-          </div>
-
-          <button id="btn-header-notifications" className="gs-icon-btn" onClick={onOpenAlerts} aria-label="Notifications" title="Notifications">
-            <Bell size={18} />{unreadAlertsCount > 0 && <span className="gs-badge">{unreadAlertsCount}</span>}
           </button>
 
-          <button id="btn-open-sync-modal" className="gs-sync-btn" onClick={onOpenSyncModal} title="Sync across your devices">
-            <Cast size={16}/><span>Sync</span>{syncState.syncToken && <small>Connected</small>}
+          {/* Cross-device sync */}
+          <button
+            id="btn-open-sync-modal"
+            onClick={onOpenSyncModal}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-blue-300 bg-blue-950/40 hover:bg-blue-900/50 border border-blue-500/30 transition shadow-sm"
+            title="Cross-Device Sync"
+          >
+            <Cast size={15} className="text-blue-400" />
+            <span className="hidden sm:inline">Sync</span>
+            {syncState.syncToken ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Connected" />
+            ) : (
+              <span className="text-[10px] font-mono text-amber-400 font-bold hidden md:inline">
+                {syncState.syncCode}
+              </span>
+            )}
           </button>
 
-          <div className="gs-profile-wrap">
-            <button id="btn-profile-dropdown" className="gs-profile-btn" onClick={() => setProfileOpen(v => !v)} aria-expanded={profileOpen} aria-haspopup="menu">
-              <span className={`gs-avatar ${currentProfile?.avatarColor || 'bg-blue-600'}`}>{currentProfile?.name?.[0] || 'G'}</span>
-              <span className="gs-profile-name">{currentProfile?.name || 'Family'}</span>
-              <ChevronDown size={14}/>
+          {/* Profile Menu */}
+          <div className="relative">
+            <button
+              id="btn-profile-dropdown"
+              onClick={() => setProfileOpen(v => !v)}
+              className="flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 transition"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+            >
+              <span className={`w-7 h-7 rounded-lg ${currentProfile?.avatarColor || 'bg-blue-600'} text-white font-bold text-xs flex items-center justify-center shadow`}>
+                {currentProfile?.name?.[0] || 'G'}
+              </span>
+              <span className="text-xs font-semibold text-slate-200 hidden md:inline max-w-[80px] truncate">
+                {currentProfile?.name || 'Family'}
+              </span>
+              <ChevronDown size={13} className="text-slate-400" />
             </button>
+
             {profileOpen && (
-              <div id="profile-dropdown-menu" className="gs-popover gs-profile-menu">
-                <div className="gs-menu-label">Profiles</div>
+              <div
+                id="profile-dropdown-menu"
+                className="absolute right-0 mt-2 w-56 rounded-2xl bg-slate-900 p-2 border border-slate-700 shadow-2xl z-50 backdrop-blur-xl animate-in fade-in slide-in-from-top-2"
+              >
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Switch Profiles
+                </div>
                 {syncState.profiles.map(prof => (
-                  <button key={prof.id} onClick={() => { onSelectProfile(prof.id); setProfileOpen(false); }}>
-                    <span className={`gs-avatar ${prof.avatarColor}`}>{prof.name[0]}</span>
-                    <span className="gs-profile-details"><strong>{prof.name}</strong><small>{prof.role}</small></span>
-                    {prof.id === syncState.currentProfileId && <Check size={16} className="gs-check"/>}
+                  <button
+                    key={prof.id}
+                    onClick={() => { onSelectProfile(prof.id); setProfileOpen(false); }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-800 text-left transition"
+                  >
+                    <span className={`w-6 h-6 rounded-md ${prof.avatarColor} text-white font-bold text-xs flex items-center justify-center`}>
+                      {prof.name[0]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{prof.name}</div>
+                      <div className="text-[10px] text-slate-400">{prof.role}</div>
+                    </div>
+                    {prof.id === syncState.currentProfileId && (
+                      <Check size={14} className="text-emerald-400 shrink-0" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -101,12 +173,30 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="gs-mobile-nav" aria-label="Mobile navigation">
-        {primary.map(tab => (
-          <button key={tab.id} onClick={() => navigate(tab.id)} className={currentTab === tab.id ? 'active' : ''} aria-current={currentTab === tab.id ? 'page' : undefined}>
-            {tab.icon}<span>{tab.label}</span>
-          </button>
-        ))}
+      {/* Mobile / Tablet Horizontal Navigation Scroll */}
+      <div className="lg:hidden border-t border-slate-850 bg-slate-950/90 px-3 py-2 flex items-center gap-1.5 overflow-x-auto shelf-scroll">
+        {navItems.map(item => {
+          const isActive = currentTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-900/40'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="text-[9px] font-mono px-1 rounded-full bg-slate-800 text-amber-300 font-bold">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </header>
   );

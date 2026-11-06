@@ -22,12 +22,12 @@ import {
   Cast,
   RefreshCw,
   Volume1,
-  Youtube,
   ShieldCheck,
-  Film
+  Film,
+  ExternalLink
 } from 'lucide-react';
 import { Channel, Sermon } from '../types';
-import { getYouTubeEmbedUrl } from '../utils/christianFilter';
+import { getYouTubeEmbedUrl, resolveVideoSource } from '../utils/christianFilter';
 
 interface LiveTvPlayerProps {
   currentChannel: Channel;
@@ -160,48 +160,74 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
       }`}
     >
       {/* Video Element or Broadcast Backdrop */}
-      {currentChannel.youtubeId && !isAudioOnly ? (
-        <div className="relative h-full w-full bg-black">
-          <iframe
-            src={getYouTubeEmbedUrl(currentChannel.youtubeId, { autoplay: true, mute: isMuted, rel: 0 })}
-            title={currentChannel.name}
-            className="h-full w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
-          <div className={`absolute top-4 left-4 z-20 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold backdrop-blur-md pointer-events-none shadow-lg ${
-            currentChannel.currentProgram.isLive
-              ? 'bg-slate-950/85 border border-red-500/50 text-red-300'
-              : 'bg-slate-950/85 border border-slate-700 text-slate-300'
-          }`}>
-            {currentChannel.currentProgram.isLive ? (
-              <>
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                <span>🔴 LIVE NOW</span>
-              </>
-            ) : (
-              <>
-                <Film className="h-3.5 w-3.5 text-blue-400" />
-                <span>🎬 FEATURED BROADCAST</span>
-              </>
-            )}
-          </div>
-        </div>
-      ) : !isAudioOnly && !hasVideoError ? (
-        <video
-          ref={videoRef}
-          key={videoSrc}
-          src={videoSrc}
-          autoPlay
-          playsInline
-          muted={isMuted}
-          loop
-          onError={handleVideoError}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          className="h-full w-full object-cover"
-        />
-      ) : hasVideoError ? (
+      {(() => {
+        const videoSource = resolveVideoSource(currentChannel.youtubeId || currentChannel.streamUrl, { autoplay: true, mute: isMuted });
+        const isEmbeddable = videoSource.isEmbeddable && videoSource.type !== 'direct';
+
+        if (isEmbeddable && !isAudioOnly) {
+          return (
+            <div className="relative h-full w-full bg-black">
+              <iframe
+                src={videoSource.embedUrl}
+                title={currentChannel.name}
+                className="h-full w-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+              <div className={`absolute top-4 left-4 z-20 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold backdrop-blur-md pointer-events-none shadow-lg ${
+                currentChannel.currentProgram.isLive
+                  ? 'bg-slate-950/85 border border-red-500/50 text-red-300'
+                  : 'bg-slate-950/85 border border-slate-700 text-slate-300'
+              }`}>
+                {currentChannel.currentProgram.isLive ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                    <span>🔴 LIVE NOW</span>
+                  </>
+                ) : (
+                  <>
+                    <Film className="h-3.5 w-3.5 text-blue-400" />
+                    <span>🎬 {videoSource.providerName.toUpperCase()} BROADCAST</span>
+                  </>
+                )}
+              </div>
+
+              {videoSource.externalUrl && (
+                <a
+                  href={videoSource.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:text-white shadow-xl backdrop-blur-md transition group"
+                  title={`Watch directly on ${videoSource.providerName}`}
+                >
+                  <span>Open on {videoSource.providerName}</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-blue-400 group-hover:translate-x-0.5 transition-transform" />
+                </a>
+              )}
+            </div>
+          );
+        }
+
+        if (!isAudioOnly && !hasVideoError) {
+          return (
+            <video
+              ref={videoRef}
+              key={videoSrc}
+              src={videoSrc}
+              autoPlay
+              playsInline
+              muted={isMuted}
+              loop
+              onError={handleVideoError}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              className="h-full w-full object-cover"
+            />
+          );
+        }
+
+        return null;
+      })() || (hasVideoError ? (
         /* Honest network-error state: never simulate live media when the stream is unavailable. */
         <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(59,130,246,0.15),transparent_70%)] pointer-events-none" />
@@ -273,7 +299,7 @@ export const LiveTvPlayer: React.FC<LiveTvPlayerProps> = ({
             <span className="w-1.5 bg-blue-400 rounded-full animate-bounce h-3" />
           </div>
         </div>
-      )}
+      ))}
 
       {/* Unmute prompt pill when muted */}
       {isMuted && !hasVideoError && (
