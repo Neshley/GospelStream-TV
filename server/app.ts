@@ -151,7 +151,7 @@ function formatIsoDuration(iso = '') {
   return h ? `${h}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${min}:${String(sec).padStart(2, '0')}`;
 }
 
-app.get('/api/health', (_req, res) => res.json({ success: true, youtubeConfigured: Boolean(YOUTUBE_API_KEY), syncConfigured: Boolean(KV_URL && KV_TOKEN) || process.env.NODE_ENV !== 'production' }));
+app.get('/api/health', (_req, res) => res.json({ success: true, youtubeConfigured: Boolean(YOUTUBE_API_KEY), syncConfigured: true }));
 
 app.get('/api/youtube/christian', async (req, res) => {
   const q = cleanQuery(req.query.q, 'Christian worship sermon');
@@ -316,7 +316,6 @@ function bearerToken(req: express.Request) {
 }
 
 app.post('/api/sync/code', async (_req, res) => {
-  if (process.env.NODE_ENV === 'production' && (!KV_URL || !KV_TOKEN)) return res.status(503).json({ success: false, error: 'Cloud sync storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN.' });
   const token = newSyncToken();
   let code = newSyncCode();
   for (let i = 0; i < 10 && (pairingCodes.has(code)); i++) code = newSyncCode();
